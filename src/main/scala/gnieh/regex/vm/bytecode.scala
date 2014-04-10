@@ -20,6 +20,8 @@ sealed trait Inst
 
 final case class CharMatch(c: Char, next: Inst) extends Inst
 
+final case class RangeMatch(start: Char, end: Char, next: Inst) extends Inst
+
 case object MacthFound extends Inst
 
 final case class Split(next1: Inst, next2: Inst) extends Inst

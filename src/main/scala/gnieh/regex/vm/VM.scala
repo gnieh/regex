@@ -17,11 +17,6 @@ package gnieh.regex
 package vm
 
 import scala.annotation.tailrec
-import scala.util.{
-  Try,
-  Success,
-  Failure
-}
 
 object VM {
 
@@ -57,6 +52,10 @@ object VM {
         loop(tail, acc + RThread(next, saved))
       case RThread(CharMatch(_, _), _) :: tail =>
         // the current character does not match the expected one, discard this thread
+        loop(tail, acc)
+      case RThread(RangeMatch(start, end, next), saved) :: tail if char >= start && char <= end =>
+        loop(tail, acc + RThread(next, saved))
+      case RThread(RangeMatch(_, _, _), _) :: tail =>
         loop(tail, acc)
       case RThread(MacthFound, saved) :: tail =>
         Matched(saved)

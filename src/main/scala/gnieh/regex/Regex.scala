@@ -22,7 +22,7 @@ class Regex(str: String) {
 
   private val compiled = {
     new Parser(str).parsed map {
-      case (options, parsed) => Compiler.compile(options, parsed)
+      case (options, parsed) => new Compiler(options).compile(parsed).andThen(MatchFound)
     }
   }
 

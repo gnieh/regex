@@ -20,7 +20,11 @@ import vm._
 
 class Regex(str: String) {
 
-  private val compiled = Compiler.compile(str)
+  private val compiled = {
+    new Parser(str).parsed map {
+      case (options, parsed) => Compiler.compile(options, parsed)
+    }
+  }
 
 }
 

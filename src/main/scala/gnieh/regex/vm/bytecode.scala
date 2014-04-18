@@ -16,17 +16,37 @@
 package gnieh.regex
 package vm
 
-sealed trait Inst
+sealed trait Inst {
+  def withNext(i: Inst): Inst
+}
 
-final case class CharMatch(c: Char, next: Inst) extends Inst
+final case class CharMatch(c: Char, next: Inst) extends Inst {
+  def withNext(i: Inst): Inst =
+    CharMatch(c, next.withNext(i))
+}
 
-final case class RangeMatch(start: Char, end: Char, next: Inst) extends Inst
+final case class RangeMatch(start: Char, end: Char, next: Inst) extends Inst {
+  def withNext(i: Inst): Inst =
+    RangeMatch(start, end, next.withNext(i))
+}
 
-case object MacthFound extends Inst
+case object MatchFound extends Inst {
+  def withNext(i: Inst): Inst =
+    i
+}
 
-final case class Split(next1: Inst, next2: Inst) extends Inst
+final case class Split(next1: Inst, next2: Inst) extends Inst {
+  def withNext(i: Inst): Inst =
+    Split(next1.withNext(i), next2.withNext(i))
+}
 
-final case class Jump(next: Inst) extends Inst
+final case class Jump(next: Inst) extends Inst {
+  def withNext(i: Inst): Inst =
+    Jump(next.withNext(i))
+}
 
-final case class Save(nb: Int, next: Inst) extends Inst
+final case class Save(nb: Int, next: Inst) extends Inst {
+  def withNext(i: Inst): Inst =
+    Save(nb, next.withNext(i))
+}
 

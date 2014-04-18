@@ -57,7 +57,7 @@ object VM {
         loop(tail, acc + RThread(next, saved))
       case RThread(RangeMatch(_, _, _), _) :: tail =>
         loop(tail, acc)
-      case RThread(MacthFound, saved) :: tail =>
+      case RThread(MatchFound, saved) :: tail =>
         Matched(saved)
       case RThread(Jump(next), saved) :: tail =>
         loop(RThread(next, saved) :: tail, acc)

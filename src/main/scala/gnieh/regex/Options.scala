@@ -14,14 +14,9 @@
 * limitations under the License.
 */
 package gnieh.regex
-package compiler
 
-import vm._
-
-object Compiler {
-
-  def compile(options: Options, re: ReNode): Inst =
-    ???
-
-}
+case class Options(
+  caseSensitive: Boolean = true,
+  dotAll: Boolean = false,
+  multiLine: Boolean = false)
 

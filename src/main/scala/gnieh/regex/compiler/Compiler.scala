@@ -18,40 +18,69 @@ package compiler
 
 import vm._
 
-class Compiler(options: Options) {
+object Compiler {
 
-  def compile(re: ReNode): Inst = {
-    def loop(currentSave: Int, re: ReNode): Inst = {
+  def compile(re: ReNode): (Int, Vector[Inst]) = {
+    def loop(currentSave: Int, startIdx: Int, re: ReNode): (Int, Int, Vector[Inst]) = {
       re match {
         case Empty =>
-          Accept()
+          // match
+          (currentSave, startIdx + 1, Vector(MatchFound))
         case SomeChar(c) =>
-          CharMatch(c, Accept())
+          // char c
+          (currentSave, startIdx + 1, Vector(CharMatch(c)))
         case AnyChar =>
-          AnyMatch(Accept())
+          // any
+          (currentSave, startIdx + 1, Vector(AnyMatch()))
         case Concat(e1, e2) =>
-          loop(currentSave, e1).andThen(loop(currentSave, e2))
+          // comp(e1)
+          // comp(e2)
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx, e1)
+          val (currentSave2, idx2, v2) = loop(currentSave1, idx1, e2)
+          (currentSave2, idx2, v1 ++ v2)
         case Alt(e1, e2) =>
-          val end = Accept()
-          Split(loop(currentSave, e1).andThen(end), loop(currentSave, e2).andThen(end))
+          // split L1, L2
+          // L1: comp(e1)
+          // jump L3
+          // L2: comp(e2)
+          // L3:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e1)
+          val (currentSave2, idx2, v2) = loop(currentSave1, idx1 + 1, e2)
+          (currentSave2, idx2, Vector(Split(startIdx + 1, idx1 + 1)) ++ v1 ++ Vector(Jump(idx2)) ++ v2)
         case Opt(e) =>
-          val end = Accept()
-          Split(loop(currentSave, e).andThen(end), end)
+          // split L1, L2
+          // L1: comp(e)
+          // L2:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e)
+          (currentSave1, idx1, Vector(Split(startIdx + 1, idx1)) ++ v1)
         case Star(e) =>
-          lazy val split: Inst = Split(loop(currentSave, e).andThen(Jump(split)), Accept())
-          split
+          // L1: split L2, L3
+          // L2: comp(e)
+          // jump L1
+          // L3:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e)
+          (currentSave1, idx1 + 1, Vector(Split(startIdx + 1, idx1 + 1)) ++ v1 ++ Vector(Jump(startIdx)))
         case Plus(e) =>
-          lazy val e1: Inst = loop(currentSave, e).andThen(Split(e1, Accept()))
-          e1
+          // L1: comp(e)
+          // split L1, L2
+          // L2:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx, e)
+          (currentSave1, idx1 + 1, v1 ++ Vector(Split(startIdx, idx1 + 1)))
         case Range(c1, c2) =>
-          RangeMatch(c1, c2, Accept())
+          // range c1, c2
+          (currentSave, startIdx + 1, Vector(RangeMatch(c1, c2)))
         case Capture(e) =>
-          Save(currentSave, loop(currentSave + 2, e).andThen(Save(currentSave + 1, Accept())))
+          // save n
+          // comp(e)
+          // save n + 1
+          val (currentSave1, idx1, v1) = loop(currentSave + 2, startIdx + 1, e)
+          (currentSave1, idx1 + 1, Vector(Save(currentSave)) ++ v1 ++ Vector(Save(currentSave + 1)))
         case _: Temporary =>
           throw new RuntimeException("Should never happen")
       }
     }
-    loop(0, re)
+    val (saved, _, inst) = loop(0, 0, re)
+    (saved / 2, inst ++ Vector(MatchFound))
   }
 
 }

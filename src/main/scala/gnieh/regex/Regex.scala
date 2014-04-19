@@ -18,13 +18,62 @@ package gnieh.regex
 import compiler._
 import vm._
 
-class Regex(str: String) {
+import scala.util.Failure
 
-  private val compiled = {
-    new Parser(str).parsed map {
-      case (options, parsed) => new Compiler(options).compile(parsed).andThen(MatchFound)
+class Regex(val source: String) {
+
+  private val (saved, compiled) = {
+    new Parser(source).parsed map {
+      case parsed => Compiler.compile(parsed)
+    } recoverWith {
+      case exn: RegexParserException =>
+        Failure(new RuntimeException(s"""${exn.getMessage}
+                                        |${source.substring(exn.offset)}
+                                        |^""".stripMargin))
     }
+  }.get
+
+  private val vm = new VM(compiled, saved)
+
+  /** Tells whether this regular expression is matched by the given input */
+  def isMatchedBy(input: String): Boolean =
+    vm.exec(input).fold(false) {
+      case (start, end, _) =>
+        start == 0 && end == input.length - 1
+    }
+
+  /** Finds the first match of this regular expression in the input.
+   *  If nothing matches, returns `None`*/
+  def findFirstIn(input: String): Option[String] =
+    vm.exec(input).map { case (start, end, _) => input.substring(start, end - start) }
+
+  /** Finds all matches of this regular expression in the input. */
+  def findAllIn(input: String): Iterator[String] = {
+    def loop(input: String): Stream[String] =
+      vm.exec(input) match {
+        case Some((start, end, _)) =>
+          input.substring(start, end - start) #:: loop(input.substring(end))
+        case None if input.nonEmpty =>
+          loop(input.tail)
+        case None =>
+          Stream.empty
+      }
+    loop(input).iterator
   }
+
+  def unapplySeq(input: String): Option[List[String]] =
+    for {
+      (start, end, saved) <- vm.exec(input)
+      if start == 0 && end == input.length - 1 && saved.length % 2 == 0
+    } yield
+      (for(Vector(s, e) <- saved.grouped(2))
+        yield if(s == -1 || e == -1)
+          null
+        else
+          input.substring(s, e - s)).toList
+
+  override def toString =
+    source
 
 }
 

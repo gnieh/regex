@@ -14,6 +14,7 @@
 * limitations under the License.
 */
 package gnieh.regex
+package vm
 
 case class Options(
   caseSensitive: Boolean = true,

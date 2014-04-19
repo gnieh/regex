@@ -24,7 +24,12 @@ import scala.util.{
 
 import scala.annotation.tailrec
 
-class RegexParserException(val offset: Int, msg: String) extends Exception(msg)
+class RegexParserException(val offset: Int, msg: String) extends Exception(msg) {
+
+  override def getMessage(): String =
+    s"$msg near index $offset"
+
+}
 
 /** Parses a regular expression, accepts POSIX Extended Regular Expression syntax.
  *  The accepted grammar is as follows:
@@ -69,7 +74,7 @@ class Parser(input: String) {
   // stack of already parsed regular expression parts
   private type Stack = List[ReNode]
 
-  def parsed: Try[(Options, ReNode)] = {
+  def parsed: Try[ReNode] = {
     @tailrec
     def loop(state: LexState, level: Int, stack: Stack, offset: Int): Try[Stack] =
       if(offset >= input.length) {
@@ -88,7 +93,7 @@ class Parser(input: String) {
       loop(NormalState, 0, Nil, 0).flatMap { stack =>
         reduceAlternatives(0, stack, input.length).flatMap {
           case List(node) =>
-            Success(Options(), node)
+            Success(node)
           case _ =>
             Failure(new RegexParserException(0, "Malformed regular expression"))
         }

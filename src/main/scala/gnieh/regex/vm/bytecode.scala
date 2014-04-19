@@ -16,66 +16,33 @@
 package gnieh.regex
 package vm
 
-sealed trait Inst {
-  def andThen(i: Inst): Inst
+sealed trait Inst
+
+final case class CharMatch(c: Char) extends Inst {
+  override def toString = s"char $c"
 }
 
-final case class CharMatch(c: Char, next: Inst) extends Inst {
-  def andThen(i: Inst): Inst =
-    CharMatch(c, next.andThen(i))
+final case class AnyMatch() extends Inst {
+  override def toString = "any"
 }
 
-final case class AnyMatch(next: Inst) extends Inst {
-  def andThen(i: Inst): Inst =
-    AnyMatch(next.andThen(i))
-}
-
-final case class RangeMatch(start: Char, end: Char, next: Inst) extends Inst {
-  def andThen(i: Inst): Inst =
-    RangeMatch(start, end, next.andThen(i))
+final case class RangeMatch(start: Char, end: Char) extends Inst {
+  override def toString = s"range $start, $end"
 }
 
 case object MatchFound extends Inst {
-  def andThen(i: Inst): Inst =
-    this
+  override def toString = "match"
 }
 
-final class Split(_next1: =>Inst, _next2: =>Inst) extends Inst {
-
-  lazy val next1 = _next1
-  lazy val next2 = _next2
-
-  def andThen(i: Inst): Inst =
-    Split(next1.andThen(i), next2.andThen(i))
-
-}
-object Split {
-
-  def apply(next1: =>Inst, next2: =>Inst): Split =
-    new Split(next1, next2)
-
-  def unapply(inst: Inst): Option[(Inst, Inst)] =
-    inst match {
-      case split: Split =>
-        Some(split.next1 -> split.next2)
-      case _ =>
-        None
-    }
-
+final case class Split(next1: Int, next2: Int) extends Inst {
+  override def toString = s"split $next1, $next2"
 }
 
-final case class Jump(next: Inst) extends Inst {
-  def andThen(i: Inst): Inst =
-    Jump(next.andThen(i))
+final case class Jump(next: Int) extends Inst {
+  override def toString = s"jump $next"
 }
 
-final case class Save(nb: Int, next: Inst) extends Inst {
-  def andThen(i: Inst): Inst =
-    Save(nb, next.andThen(i))
-}
-
-private[regex] final case class Accept() extends Inst {
-  def andThen(i: Inst): Inst =
-    i
+final case class Save(nb: Int) extends Inst {
+  override def toString = s"save $nb"
 }
 

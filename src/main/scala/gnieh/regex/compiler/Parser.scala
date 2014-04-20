@@ -55,6 +55,9 @@ class Parser(input: String) {
   private case object RBRACE extends Token
   private case object CIRC extends Token
   private case object DOLLAR extends Token
+  private case object NUMBER_CLASS extends Token
+  private case object WORD_CLASS extends Token
+  private case object SPACE_CLASS extends Token
   private case object EOI extends Token
   private final case class CHAR(c: Char) extends Token
 
@@ -110,6 +113,38 @@ class Parser(input: String) {
         Success(state, level, AnyChar :: stack, newOffset)
       case (CHAR(c), newOffset) =>
         Success(state, level, SomeChar(c) :: stack, newOffset)
+      case (NUMBER_CLASS, newOffset) =>
+        // number class is syntactic sugar for [0-9]
+        Success(state, level, Range('0', '9') :: stack, newOffset)
+      case (WORD_CLASS, newOffset) =>
+        // word class is syntactic sugar for [A-Za-z0-9_]
+        Success(state, level,
+          Alt(
+            Range('A', 'Z'),
+            Alt(
+              Range('a', 'z'),
+              Alt(
+                Range('0', '9'),
+                SomeChar('_')
+              )
+            )
+          ) :: stack, newOffset)
+      case (SPACE_CLASS, newOffset) =>
+        // space class is syntactic sugar for [ \t\r\n\f]
+        Success(state, level,
+          Alt(
+            SomeChar(' '),
+            Alt(
+              SomeChar('\t'),
+              Alt(
+                SomeChar('\r'),
+                Alt(
+                  SomeChar('\n'),
+                  SomeChar('\f')
+                )
+              )
+            )
+          ) :: stack, newOffset)
       case (STAR, newOffset) =>
         // zero or more repetition, we pop the last element from the stack and
         // push the new repeated one
@@ -248,19 +283,41 @@ class Parser(input: String) {
         "\\[]".contains(c)
     }
 
+  private def classable(state: LexState, c: Char): Boolean =
+    state match {
+      case NormalState =>
+        "dsw".contains(c)
+      case SetState(_) =>
+        false
+    }
+
   private def nextToken(state: LexState, offset: Offset): Try[(Token, Offset)] =
     if(offset >= input.size) {
       // EOI reached
       Success(EOI, offset)
     } else if(input(offset) == '\\') {
-      if(offset + 1 < input.size) // still something to read
-       if(escapable(state, input(offset + 1)))
+      if(offset + 1 < input.size) {
+        // still something to read
+        if(escapable(state, input(offset + 1))) {
           // escaped character
           Success(CHAR(input(offset + 1)), offset + 2)
-        else
+        } else if(classable(state, input(offset + 1))) {
+          // character class
+          if(input(offset + 1) == 'd') {
+            Success(NUMBER_CLASS, offset + 2)
+          } else if(input(offset + 1) == 's') {
+            Success(SPACE_CLASS, offset + 2)
+          } else if(input(offset + 1) == 'w') {
+            Success(WORD_CLASS, offset + 2)
+          } else {
+            Failure(new RegexParserException(offset + 1, s"Unknown escaped character '\\${input(offset + 1)}'"))
+          }
+        } else {
           Failure(new RegexParserException(offset + 1, s"Unknown escaped character '\\${input(offset + 1)}'"))
-      else
+        }
+      } else {
         Failure(new RegexParserException(offset, "Unterminated escaped character"))
+      }
     } else if(escapable(state, input(offset))) {
       if(input(offset) == '.')
         Success(DOT, offset + 1)

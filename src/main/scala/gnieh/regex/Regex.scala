@@ -33,26 +33,38 @@ class Regex(val source: String) {
     }
   }.get
 
+  //println(util.Debug.print(compiled))
+
   private val vm = new VM(compiled, saved)
 
   /** Tells whether this regular expression is matched by the given input */
   def isMatchedBy(input: String): Boolean =
     vm.exec(input).fold(false) {
       case (start, end, _) =>
-        start == 0 && end == input.length - 1
+        start == 0 && end == input.length
     }
 
   /** Finds the first match of this regular expression in the input.
    *  If nothing matches, returns `None`*/
-  def findFirstIn(input: String): Option[String] =
-    vm.exec(input).map { case (start, end, _) => input.substring(start, end - start + 1) }
+  def findFirstIn(input: String): Option[String] = {
+    def find(input: String): Option[String] =
+      vm.exec(input) match {
+        case Some((start, end, _)) =>
+          Some(input.substring(start, end))
+        case None if input.nonEmpty =>
+          find(input.tail)
+        case None =>
+          None
+      }
+    find(input)
+  }
 
   /** Finds all matches of this regular expression in the input. */
   def findAllIn(input: String): Iterator[String] = {
     def loop(input: String): Stream[String] =
       vm.exec(input) match {
         case Some((start, end, _)) =>
-          input.substring(start, end - start + 1) #:: loop(input.substring(end + 1))
+          input.substring(start, end) #:: loop(input.substring(end))
         case None if input.nonEmpty =>
           loop(input.tail)
         case None =>
@@ -64,13 +76,14 @@ class Regex(val source: String) {
   def unapplySeq(input: String): Option[List[String]] =
     for {
       (start, end, saved) <- vm.exec(input)
-      if start == 0 && end == input.length - 1 && saved.length % 2 == 0
+      if start == 0 && end == input.length && saved.length % 2 == 0
+      () = println(saved)
     } yield
       (for(Vector(s, e) <- saved.grouped(2))
         yield if(s == -1 || e == -1)
           null
         else
-          input.substring(s, e - s + 1)).toList
+          input.substring(s, e)).toList
 
   override def toString =
     source

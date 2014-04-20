@@ -45,14 +45,14 @@ class Regex(val source: String) {
   /** Finds the first match of this regular expression in the input.
    *  If nothing matches, returns `None`*/
   def findFirstIn(input: String): Option[String] =
-    vm.exec(input).map { case (start, end, _) => input.substring(start, end - start) }
+    vm.exec(input).map { case (start, end, _) => input.substring(start, end - start + 1) }
 
   /** Finds all matches of this regular expression in the input. */
   def findAllIn(input: String): Iterator[String] = {
     def loop(input: String): Stream[String] =
       vm.exec(input) match {
         case Some((start, end, _)) =>
-          input.substring(start, end - start) #:: loop(input.substring(end))
+          input.substring(start, end - start + 1) #:: loop(input.substring(end + 1))
         case None if input.nonEmpty =>
           loop(input.tail)
         case None =>
@@ -70,7 +70,7 @@ class Regex(val source: String) {
         yield if(s == -1 || e == -1)
           null
         else
-          input.substring(s, e - s)).toList
+          input.substring(s, e - s + 1)).toList
 
   override def toString =
     source

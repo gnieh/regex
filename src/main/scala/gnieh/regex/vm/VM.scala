@@ -29,31 +29,34 @@ class VM(program: Vector[Inst], nbSaved: Int) {
     //println(s"with input: $string")
 
     @tailrec
-    def loop(string: Seq[(Char, Int)], threads: List[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] =
-      if(string.isEmpty)
-        lastMatch
-      else {
-        val (char, idx) = string.head
-        step(idx, char, threads) match {
-          case Next(Nil) =>
-            // did not match
-            lastMatch
-          case Next(threads) =>
-            loop(string.tail, threads, lastMatch)
-          case Matched(start, end, saved, threads) if threads.nonEmpty =>
-            // a match was found but if some higher priority threads still exist
-            // try if we find a longer match
-            loop(string.tail, threads, Some(start, end, saved))
-          case Matched(start, end, saved, threads) =>
-            Some(start, end, saved)
+    def loop(str: Seq[(Char, Int)], threads: List[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
+      val res =
+        if(str.isEmpty)
+          step(string.length, None, threads)
+        else {
+          val (char, idx) = str.head
+          step(idx, Some(char), threads)
         }
+      res match {
+        case Next(Nil) =>
+          // did not match
+          lastMatch
+        case Next(threads) =>
+          loop(str.tail, threads, lastMatch)
+        case Matched(start, end, saved, threads) if threads.nonEmpty =>
+          // a match was found but if some higher priority threads still exist
+          // try if we find a longer match
+          loop(str.tail, threads, Some(start, end, saved))
+        case Matched(start, end, saved, threads) =>
+          Some(start, end, saved)
       }
-    // create the first thread in which the vritual machine executes the code
-    loop(string.zipWithIndex, List(RThread(-1, 0, Vector.fill(nbSaved * 2)(-1))), None)
+    }
+    // create and schedule the first thread in which the vritual machine executes the code
+    loop(string.zipWithIndex, schedule(RThread(-1, 0, Vector.fill(nbSaved * 2)(-1)), Nil, 0), None)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */
-  private def step(idx: Int, char: Char, threads: List[RThread]) = {
+  private def step(idx: Int, char: Option[Char], threads: List[RThread]) = {
     @tailrec
     def loop(threads: List[RThread], acc: List[RThread]): StepResult = threads match {
       case RThread(startIdx, pc, saved) :: tail =>
@@ -62,24 +65,24 @@ class VM(program: Vector[Inst], nbSaved: Int) {
         fetch(pc) match {
           case AnyMatch() =>
             // any characters matches
-            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc))
-          case CharMatch(c) if char == c =>
+            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx))
+          case CharMatch(c) if char == Some(c) =>
             // the current character matches the expected one, just try the next thread and save the
             // next instruction in this thread for the next step
-            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc))
+            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx))
           case CharMatch(_) =>
             // the current character does not match the expected one, discard this thread
             loop(tail, acc)
-          case RangeMatch(start, end) if char >= start && char <= end =>
+          case RangeMatch(start, end) if char.isDefined && char.get >= start && char.get <= end =>
             // the current character is in the expected range, schedule the next instruction in this thread and try further
-            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc))
+            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx))
           case RangeMatch(_, _) =>
             // the current character is not is the expected range, discard this thread
             loop(tail, acc)
           case MatchFound =>
             // a match was found
-            Matched(startIdx, idx, saved, acc)
-          case Jump(next) =>
+            Matched(startIdx, idx - 1, saved, acc)
+          /*case Jump(next) =>
             // simply jump to the next instruction
             loop(RThread(startIdx, next, saved) :: tail, acc)
           case Split(next1, next2) =>
@@ -87,7 +90,7 @@ class VM(program: Vector[Inst], nbSaved: Int) {
             loop(RThread(startIdx, next1, saved) :: RThread(startIdx, next2, saved) :: tail, acc)
           case Save(i) =>
             // save the current index in the appropriate register and try further
-            loop(RThread(startIdx, pc + 1, saved.updated(i, idx)) :: tail, acc)
+            loop(RThread(startIdx, pc + 1, saved.updated(i, idx)) :: tail, acc)*/
         }
       case Nil =>
         // we executed all threads for this step, we can go to the next step
@@ -102,11 +105,21 @@ class VM(program: Vector[Inst], nbSaved: Int) {
     else
       throw new RuntimeException("Invalid regular expression")
 
-  private def schedule(thread: RThread, queue: List[RThread]): List[RThread] =
+  private def schedule(thread: RThread, queue: List[RThread], idx: Int): List[RThread] =
     if(queue.exists(_.pc == thread.pc))
       queue
-    else
-      thread :: queue
+    else {
+      fetch(thread.pc) match {
+        case Split(i1, i2) =>
+          schedule(RThread(thread.startIdx, i1, thread.saved), schedule(RThread(thread.startIdx, i2, thread.saved), queue, idx), idx)
+        case Jump(i) =>
+          schedule(RThread(thread.startIdx, i, thread.saved), queue, idx)
+        case Save(n) =>
+          schedule(RThread(thread.startIdx, thread.pc + 1, thread.saved.updated(n, idx)), queue, idx)
+        case _ =>
+          thread :: queue
+      }
+    }
 
 }
 

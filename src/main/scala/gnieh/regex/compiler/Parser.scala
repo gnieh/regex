@@ -251,6 +251,8 @@ class Parser(input: String) {
         case SomeChar(c) :: tail =>
           // any other character
           loop(tail, CharRange(c) :: acc)
+        case CharSet(chars) :: tail =>
+          loop(tail, acc ++ chars)
         case n :: tail =>
           Failure(new RegexParserException(offset, "Malformed character set"))
       }
@@ -285,13 +287,8 @@ class Parser(input: String) {
         "\\[]".contains(c)
     }
 
-  private def classable(state: LexState, c: Char): Boolean =
-    state match {
-      case NormalState =>
-        "dsw".contains(c)
-      case SetState(_) =>
-        false
-    }
+  private def classable(c: Char): Boolean =
+    "dsw".contains(c)
 
   private def nextToken(state: LexState, offset: Offset): Try[(Token, Offset)] =
     if(offset >= input.size) {
@@ -303,7 +300,7 @@ class Parser(input: String) {
         if(escapable(state, input(offset + 1))) {
           // escaped character
           Success(CHAR(input(offset + 1)), offset + 2)
-        } else if(classable(state, input(offset + 1))) {
+        } else if(classable(input(offset + 1))) {
           // character class
           if(input(offset + 1) == 'd') {
             Success(NUMBER_CLASS, offset + 2)

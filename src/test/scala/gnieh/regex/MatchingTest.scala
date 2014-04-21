@@ -77,7 +77,7 @@ class MatchingTest extends FlatSpec with ShouldMatchers {
 
   "Character set" should "match if the string is contained in this set" in {
 
-    val re = "[a-zA-Z_][a-zA-Z0-9_]*".re
+    val re = "[a-zA-Z_][a-z[A-Z]\\d_]*".re
 
     re.isMatchedBy("some_identifier43") should be(true)
 

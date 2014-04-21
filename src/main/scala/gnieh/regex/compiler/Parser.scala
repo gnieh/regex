@@ -16,6 +16,8 @@
 package gnieh.regex
 package compiler
 
+import util._
+
 import scala.util.{
   Try,
   Success,
@@ -115,34 +117,27 @@ class Parser(input: String) {
         Success(state, level, SomeChar(c) :: stack, newOffset)
       case (NUMBER_CLASS, newOffset) =>
         // number class is syntactic sugar for [0-9]
-        Success(state, level, Range('0', '9') :: stack, newOffset)
+        Success(state, level, CharSet(List(CharRange('0', '9'))) :: stack, newOffset)
       case (WORD_CLASS, newOffset) =>
         // word class is syntactic sugar for [A-Za-z0-9_]
         Success(state, level,
-          Alt(
-            Range('A', 'Z'),
-            Alt(
-              Range('a', 'z'),
-              Alt(
-                Range('0', '9'),
-                SomeChar('_')
-              )
+          CharSet(
+            List(
+              CharRange('A', 'Z'),
+              CharRange('a', 'z'),
+              CharRange('0', '9')
             )
           ) :: stack, newOffset)
       case (SPACE_CLASS, newOffset) =>
         // space class is syntactic sugar for [ \t\r\n\f]
         Success(state, level,
-          Alt(
-            SomeChar(' '),
-            Alt(
-              SomeChar('\t'),
-              Alt(
-                SomeChar('\r'),
-                Alt(
-                  SomeChar('\n'),
-                  SomeChar('\f')
-                )
-              )
+          CharSet(
+            List(
+              CharRange(' '),
+              CharRange('\t'),
+              CharRange('\r'),
+              CharRange('\n'),
+              CharRange('\f')
             )
           ) :: stack, newOffset)
       case (STAR, newOffset) =>
@@ -233,11 +228,18 @@ class Parser(input: String) {
    * the nodes, and pushes the new alternative node */
   private def reduceCharSet(level: Int, stack: Stack, offset: Offset): Try[Stack] = {
     @tailrec
-    def loop(stack: Stack, acc: Option[ReNode]): Try[Stack] =
+    def loop(stack: Stack, acc: List[CharRange]): Try[Stack] =
       stack match {
         case CharSetStart(`level`, _) :: tail =>
           // we found the matching opening node
-          Success(acc.fold(tail)(_ :: tail))
+          acc match {
+            case Nil =>
+              Success(tail)
+            case List(CharRange(c1, c2)) if c1 == c2 =>
+              Success(SomeChar(c1) :: tail)
+            case _ =>
+              Success(CharSet(acc) :: tail)
+          }
         case (tmp: Temporary) :: _ =>
           Failure(new RegexParserException(tmp.offset, "Malformed regular expression"))
         case _ :: SomeChar('-') :: CharSetStart(`level`, off) :: _ =>
@@ -245,14 +247,14 @@ class Parser(input: String) {
           Failure(new RegexParserException(off + 1, "Malformed range"))
         case SomeChar(c1) :: SomeChar('-') :: SomeChar(c2) :: tail if c2 <= c1 =>
           // well-formed range
-          loop(tail, Some(acc.fold[ReNode](Range(c2, c1))(Alt(Range(c2, c1), _))))
-        case (n @ (Range(_, _) | Alt(_, _) | SomeChar(_))) :: tail =>
+          loop(tail, CharRange(c2, c1) :: acc)
+        case SomeChar(c) :: tail =>
           // any other character
-          loop(tail, Some(acc.fold[ReNode](n)(Alt(n, _))))
+          loop(tail, CharRange(c) :: acc)
         case n :: tail =>
           Failure(new RegexParserException(offset, "Malformed character set"))
       }
-    loop(stack, None)
+    loop(stack, Nil)
   }
 
   /* Pops all the elements fromt the stack until we reach an alternative or an opening group,

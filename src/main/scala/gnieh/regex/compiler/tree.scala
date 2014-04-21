@@ -16,6 +16,8 @@
 package gnieh.regex
 package compiler
 
+import util._
+
 sealed trait ReNode
 
 case object Empty extends ReNode
@@ -34,7 +36,7 @@ final case class Plus(n: ReNode) extends ReNode
 
 final case class Opt(n: ReNode) extends ReNode
 
-final case class Range(start: Char, end: Char) extends ReNode
+final case class CharSet(chars: List[CharRange]) extends ReNode
 
 final case class Capture(n: ReNode) extends ReNode
 

@@ -32,3 +32,10 @@ case class CharRange(start: Char, end: Char) {
 
 }
 
+object CharRange {
+
+  def apply(c: Char): CharRange =
+    CharRange(c, c)
+
+}
+

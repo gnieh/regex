@@ -67,9 +67,9 @@ object Compiler {
           // L2:
           val (currentSave1, idx1, v1) = loop(currentSave, startIdx, e)
           (currentSave1, idx1 + 1, v1 ++ Vector(Split(startIdx, idx1 + 1)))
-        case Range(c1, c2) =>
+        case CharSet(ranges) =>
           // class (c => c >= c1 && c <= c2)
-          (currentSave, startIdx + 1, Vector(ClassMatch(IntervalTree(CharRange(c1, c2)))))
+          (currentSave, startIdx + 1, Vector(ClassMatch(IntervalTree(ranges: _*))))
         case Capture(e) =>
           // save n
           // comp(e)

@@ -17,6 +17,7 @@ package gnieh.regex
 package compiler
 
 import vm._
+import util._
 
 object Compiler {
 
@@ -67,8 +68,8 @@ object Compiler {
           val (currentSave1, idx1, v1) = loop(currentSave, startIdx, e)
           (currentSave1, idx1 + 1, v1 ++ Vector(Split(startIdx, idx1 + 1)))
         case Range(c1, c2) =>
-          // range c1, c2
-          (currentSave, startIdx + 1, Vector(RangeMatch(c1, c2)))
+          // class (c => c >= c1 && c <= c2)
+          (currentSave, startIdx + 1, Vector(ClassMatch(IntervalTree(CharRange(c1, c2)))))
         case Capture(e) =>
           // save n
           // comp(e)

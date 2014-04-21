@@ -75,10 +75,10 @@ class VM(program: Vector[Inst], nbSaved: Int) {
           case CharMatch(_) =>
             // the current character does not match the expected one, discard this thread
             loop(tail, acc)
-          case RangeMatch(start, end) if char.isDefined && char.get >= start && char.get <= end =>
-            // the current character is in the expected range, schedule the next instruction in this thread and try further
+          case ClassMatch(tree) if char.isDefined && tree.contains(char.get) =>
+            // the current character is in the expected class, schedule the next instruction in this thread and try further
             loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
-          case RangeMatch(_, _) =>
+          case ClassMatch(_) =>
             // the current character is not is the expected range, discard this thread
             loop(tail, acc)
           case MatchFound =>

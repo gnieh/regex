@@ -16,6 +16,8 @@
 package gnieh.regex
 package vm
 
+import util._
+
 sealed trait Inst
 
 final case class CharMatch(c: Char) extends Inst {
@@ -26,8 +28,8 @@ final case class AnyMatch() extends Inst {
   override def toString = "any"
 }
 
-final case class RangeMatch(start: Char, end: Char) extends Inst {
-  override def toString = s"range $start, $end"
+final case class ClassMatch(clazz: IntervalTree) extends Inst {
+  override def toString = s"class $clazz"
 }
 
 case object MatchFound extends Inst {

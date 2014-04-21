@@ -41,6 +41,7 @@ class Regex(val source: String) {
   def isMatchedBy(input: String): Boolean =
     vm.exec(input).fold(false) {
       case (start, end, _) =>
+        //println(s"$input matches from $start to $end")
         start == 0 && end == input.length
     }
 
@@ -77,7 +78,6 @@ class Regex(val source: String) {
     for {
       (start, end, saved) <- vm.exec(input)
       if start == 0 && end == input.length && saved.length % 2 == 0
-      () = println(saved)
     } yield
       (for(Vector(s, e) <- saved.grouped(2))
         yield if(s == -1 || e == -1)

@@ -54,7 +54,7 @@ class VM(program: Vector[Inst], nbSaved: Int) {
       }
     }
     // create and schedule the first thread in which the vritual machine executes the code
-    loop(string.zipWithIndex, schedule(RThread(-1, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0).toList, None)
+    loop(string.zipWithIndex, schedule(RThread(0, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0).toList, None)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */

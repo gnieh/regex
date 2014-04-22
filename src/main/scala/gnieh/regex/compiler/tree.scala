@@ -20,25 +20,45 @@ import util._
 
 sealed trait ReNode
 
-case object Empty extends ReNode
+case object Empty extends ReNode {
+  override def toString = ""
+}
 
-case object AnyChar extends ReNode
+case object AnyChar extends ReNode {
+  override def toString = "."
+}
 
-final case class SomeChar(c: Char) extends ReNode
+final case class SomeChar(c: Char) extends ReNode {
+  override def toString = c.toString
+}
 
-final case class Concat(n1: ReNode, n2: ReNode) extends ReNode
+final case class Concat(n1: ReNode, n2: ReNode) extends ReNode {
+  override def toString = s"$n1$n2"
+}
 
-final case class Alt(n1: ReNode, n2: ReNode) extends ReNode
+final case class Alt(n1: ReNode, n2: ReNode) extends ReNode {
+  override def toString = s"$n1|$n2"
+}
 
-final case class Star(n: ReNode) extends ReNode
+final case class Star(n: ReNode) extends ReNode {
+  override def toString = s"$n*"
+}
 
-final case class Plus(n: ReNode) extends ReNode
+final case class Plus(n: ReNode) extends ReNode {
+  override def toString = s"$n+"
+}
 
-final case class Opt(n: ReNode) extends ReNode
+final case class Opt(n: ReNode) extends ReNode {
+  override def toString = s"$n?"
+}
 
-final case class CharSet(chars: IntervalTree) extends ReNode
+final case class CharSet(chars: IntervalTree) extends ReNode {
+  override def toString = s"$chars"
+}
 
-final case class Capture(n: ReNode) extends ReNode
+final case class Capture(n: ReNode) extends ReNode {
+  override def toString = s"($n)"
+}
 
 /* A temporary node that is pushed onto the parsing stack and serves as marker
  * Typically, this is an opening parenthesis or bracket. */

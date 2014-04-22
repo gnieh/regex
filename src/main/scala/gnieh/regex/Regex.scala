@@ -20,22 +20,17 @@ import vm._
 
 import scala.util.Failure
 
-class Regex(val source: String) {
 
-  private val (saved, compiled) = {
-    new Parser(source).parsed map {
-      case parsed => Compiler.compile(parsed)
-    } recoverWith {
-      case exn: RegexParserException =>
-        Failure(new RuntimeException(s"""${exn.getMessage}
-                                        |${source.substring(exn.offset)}
-                                        |^""".stripMargin))
-    }
-  }.get
+class Regex(re: ReNode) {
+
+  def this(source: String) =
+    this(new Parser(source).parsed.get)
+
+  private lazy val (saved, compiled) = Compiler.compile(re)
 
   //println(util.Debug.print(compiled))
 
-  private val vm = new VM(compiled, saved)
+  private lazy val vm = new VM(compiled, saved)
 
   /** Tells whether this regular expression is matched by the given input */
   def isMatchedBy(input: String): Boolean =
@@ -86,7 +81,7 @@ class Regex(val source: String) {
           input.substring(s, e)).toList
 
   override def toString =
-    source
+    re.toString
 
 }
 

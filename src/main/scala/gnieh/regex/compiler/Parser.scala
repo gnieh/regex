@@ -102,6 +102,11 @@ class Parser(input: String) {
           case _ =>
             Failure(new RegexParserException(0, "Malformed regular expression"))
         }
+      } recoverWith {
+        case exn: RegexParserException =>
+          Failure(new RuntimeException(s"""${exn.getMessage}
+                                          |${input.substring(exn.offset)}
+                                          |^""".stripMargin))
       }
   }
 

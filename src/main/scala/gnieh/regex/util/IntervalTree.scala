@@ -26,6 +26,12 @@ sealed trait IntervalTree {
 
   def +(range: CharRange): IntervalTree
 
+  def ++(that: IntervalTree): IntervalTree
+
+  def -(range: CharRange): IntervalTree
+
+  def --(that: IntervalTree): IntervalTree
+
   def max: Char
 
   def height: Int
@@ -44,8 +50,20 @@ sealed trait IntervalTree {
 
 object IntervalTree {
 
+  val FullRange: IntervalTree = IntervalTree(CharRange(Char.MinValue, Char.MaxValue))
+
   def apply(ranges: CharRange*): IntervalTree =
     ranges.foldLeft(Leaf: IntervalTree)(_ + _)
+
+  def unapplySeq(tree: IntervalTree): Option[List[CharRange]] = tree match {
+    case Leaf =>
+      Some(Nil)
+    case Node(range, _, left, right) =>
+      for {
+        l <- unapplySeq(left)
+        r <- unapplySeq(right)
+      } yield l ++ List(range) ++ r
+  }
 
   def empty: IntervalTree =
     Leaf
@@ -61,6 +79,39 @@ private final case class Node(range: CharRange, max: Char, left: IntervalTree, r
       Node(range, math.max(max, r.end).toChar, left + r, right).repair
     else
       Node(range, math.max(max, r.end).toChar, left, right + r).repair
+
+  def -(r: CharRange): IntervalTree = {
+    val this1 =
+      if(range == r)
+        Leaf
+      else if(range.intersects(r))
+        if(range.start < r.start && range.end > r.end)
+          Leaf + CharRange(range.start, (r.start - 1).toChar) + CharRange((r.end + 1).toChar, range.end)
+        else if(range.start < r.start)
+          Leaf + CharRange(range.start, (r.start - 1).toChar)
+        else
+          Leaf + CharRange((r.end + 1).toChar, range.end)
+      else
+        this
+    if(r.end > max)
+      this1
+    else
+      this1 ++ (left - r) ++ (right - r)
+  }
+
+  def --(that: IntervalTree): IntervalTree = that match {
+    case Node(range1, _, left1, right1) =>
+      this - range1 -- left1 -- right1
+    case Leaf =>
+      this
+  }
+
+  def ++(that: IntervalTree): IntervalTree = that match {
+    case Node(range1, _, left1, right1) =>
+      this + range1 ++ left1 ++ right1
+    case Leaf =>
+      this
+  }
 
   def contains(char: Char): Boolean =
     range.contains(char) || (char <= max && (left.contains(char) || right.contains(char)))
@@ -116,6 +167,15 @@ private case object Leaf extends IntervalTree {
 
   def +(r: CharRange): IntervalTree =
     Node(r, r.end, Leaf, Leaf)
+
+  def -(range: CharRange): IntervalTree =
+    this
+
+  def --(that: IntervalTree): IntervalTree =
+    this
+
+  def ++(that: IntervalTree): IntervalTree =
+    that
 
   val max = Char.MinValue
 

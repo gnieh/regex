@@ -21,8 +21,11 @@ case class CharRange(start: Char, end: Char) {
   def contains(c: Char): Boolean =
     c >= start && c <= end
 
-  def overlaps(that: CharRange): Boolean =
+  def intersects(that: CharRange): Boolean =
     this.start <= that.end && this.end >= that.start
+
+  def includes(that: CharRange): Boolean =
+    this.start <= that.start && this.end >= that.end
 
   override def toString =
     if(start == end)

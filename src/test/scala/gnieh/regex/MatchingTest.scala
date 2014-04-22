@@ -92,6 +92,28 @@ class MatchingTest extends FlatSpec with ShouldMatchers {
 
   }
 
+  "Negated character set" should "match any character not in the set" in {
+
+    val re = "[^a-z]+".re
+
+    re.isMatchedBy("+98_") should be(true)
+
+  }
+
+  it should "not match character in the set" in {
+
+    val re1 = "[^a-z]+".re
+    val re2 = "\\D+".re
+    val re3 = "\\W+".re
+    val re4 = "\\S+".re
+
+    re1.isMatchedBy("a_") should be(false)
+    re2.isMatchedBy("23") should be(false)
+    re3.isMatchedBy("a_") should be(false)
+    re4.isMatchedBy(" ") should be(false)
+
+  }
+
   "Optional character" should "match if present" in {
 
     val re = "a?".re

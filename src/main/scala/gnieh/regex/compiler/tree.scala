@@ -36,7 +36,7 @@ final case class Plus(n: ReNode) extends ReNode
 
 final case class Opt(n: ReNode) extends ReNode
 
-final case class CharSet(chars: List[CharRange]) extends ReNode
+final case class CharSet(chars: IntervalTree) extends ReNode
 
 final case class Capture(n: ReNode) extends ReNode
 

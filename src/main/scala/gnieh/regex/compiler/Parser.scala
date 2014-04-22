@@ -57,9 +57,9 @@ class Parser(input: String) {
   private case object RBRACE extends Token
   private case object CIRC extends Token
   private case object DOLLAR extends Token
-  private case object NUMBER_CLASS extends Token
-  private case object WORD_CLASS extends Token
-  private case object SPACE_CLASS extends Token
+  private final case class NUMBER_CLASS(negated: Boolean) extends Token
+  private final case class WORD_CLASS(negated: Boolean) extends Token
+  private final case class SPACE_CLASS(negated: Boolean) extends Token
   private case object EOI extends Token
   private final case class CHAR(c: Char) extends Token
 
@@ -69,7 +69,7 @@ class Parser(input: String) {
   //  - parsing some normal part of the regular expression
   private sealed trait LexState
   private case object NormalState extends LexState
-  private final case class SetState(previous: LexState) extends LexState
+  private final case class SetState(negated: Boolean, previous: LexState) extends LexState
 
   // offset representing the current position in the input
   private type Offset = Int
@@ -115,31 +115,34 @@ class Parser(input: String) {
         Success(state, level, AnyChar :: stack, newOffset)
       case (CHAR(c), newOffset) =>
         Success(state, level, SomeChar(c) :: stack, newOffset)
-      case (NUMBER_CLASS, newOffset) =>
+      case (NUMBER_CLASS(negated), newOffset) =>
         // number class is syntactic sugar for [0-9]
-        Success(state, level, CharSet(List(CharRange('0', '9'))) :: stack, newOffset)
-      case (WORD_CLASS, newOffset) =>
+        val interval =
+          if(negated)
+            IntervalTree(CharRange(Char.MinValue, '0' - 1), CharRange('9' + 1, Char.MaxValue))
+          else
+            IntervalTree(CharRange('0', '9'))
+        Success(state, level, CharSet(interval) :: stack, newOffset)
+      case (WORD_CLASS(negated), newOffset) =>
         // word class is syntactic sugar for [A-Za-z0-9_]
-        Success(state, level,
-          CharSet(
-            List(
-              CharRange('A', 'Z'),
-              CharRange('a', 'z'),
-              CharRange('0', '9')
-            )
-          ) :: stack, newOffset)
-      case (SPACE_CLASS, newOffset) =>
+        val interval =
+          IntervalTree(
+            CharRange('A', 'Z'),
+            CharRange('a', 'z'),
+            CharRange('0', '9')
+          )
+        Success(state, level, CharSet(if(negated) IntervalTree.FullRange -- interval else interval) :: stack, newOffset)
+      case (SPACE_CLASS(negated), newOffset) =>
         // space class is syntactic sugar for [ \t\r\n\f]
-        Success(state, level,
-          CharSet(
-            List(
-              CharRange(' '),
-              CharRange('\t'),
-              CharRange('\r'),
-              CharRange('\n'),
-              CharRange('\f')
-            )
-          ) :: stack, newOffset)
+        val interval =
+          IntervalTree(
+            CharRange(' '),
+            CharRange('\t'),
+            CharRange('\r'),
+            CharRange('\n'),
+            CharRange('\f')
+          )
+        Success(state, level, CharSet(if(negated) IntervalTree.FullRange -- interval else interval) :: stack, newOffset)
       case (STAR, newOffset) =>
         // zero or more repetition, we pop the last element from the stack and
         // push the new repeated one
@@ -169,13 +172,18 @@ class Parser(input: String) {
           yield (state, level, Alternative(offset) :: newStack, newOffset)
       case (LBRACKET, newOffset) =>
         // character set started
-        Success(SetState(state), level + 1, CharSetStart(level, offset) :: stack, newOffset)
+        nextToken(SetState(false, state), newOffset) map {
+          case (CHAR('^'), newOffset) =>
+            (SetState(true, state), level + 1, CharSetStart(level, offset) :: stack, newOffset)
+          case (_, _) =>
+            (SetState(false, state), level + 1, CharSetStart(level, offset) :: stack, newOffset)
+        }
       case (RBRACKET, newOffset)  =>
         state match {
-          case SetState(prevState) =>
+          case SetState(negated, prevState) =>
             // character set ended, reduce the character set as an alternative between characters
             // reduce until the matching
-            for(newStack <- reduceCharSet(level - 1, stack, offset))
+            for(newStack <- reduceCharSet(negated, level - 1, stack, offset))
               yield (prevState, level - 1, newStack, newOffset)
           case _ =>
             Success(state, level, SomeChar(']') :: stack, newOffset)
@@ -226,16 +234,16 @@ class Parser(input: String) {
 
   /* Pops all elements from the stack until the matching temporary opening node,alternate
    * the nodes, and pushes the new alternative node */
-  private def reduceCharSet(level: Int, stack: Stack, offset: Offset): Try[Stack] = {
+  private def reduceCharSet(negated: Boolean, level: Int, stack: Stack, offset: Offset): Try[Stack] = {
     @tailrec
-    def loop(stack: Stack, acc: List[CharRange]): Try[Stack] =
+    def loop(stack: Stack, acc: IntervalTree): Try[Stack] =
       stack match {
         case CharSetStart(`level`, _) :: tail =>
           // we found the matching opening node
           acc match {
-            case Nil =>
+            case IntervalTree() =>
               Success(tail)
-            case List(CharRange(c1, c2)) if c1 == c2 =>
+            case IntervalTree(CharRange(c1, c2)) if c1 == c2 =>
               Success(SomeChar(c1) :: tail)
             case _ =>
               Success(CharSet(acc) :: tail)
@@ -247,16 +255,25 @@ class Parser(input: String) {
           Failure(new RegexParserException(off + 1, "Malformed range"))
         case SomeChar(c1) :: SomeChar('-') :: SomeChar(c2) :: tail if c2 <= c1 =>
           // well-formed range
-          loop(tail, CharRange(c2, c1) :: acc)
+          if(negated)
+            loop(tail, acc - CharRange(c2, c1))
+          else
+            loop(tail, acc + CharRange(c2, c1))
         case SomeChar(c) :: tail =>
           // any other character
-          loop(tail, CharRange(c) :: acc)
+          if(negated)
+            loop(tail, acc - CharRange(c))
+          else
+            loop(tail, acc + CharRange(c))
         case CharSet(chars) :: tail =>
-          loop(tail, acc ++ chars)
+          if(negated)
+            loop(tail, acc -- chars)
+          else
+            loop(tail, acc ++ chars)
         case n :: tail =>
           Failure(new RegexParserException(offset, "Malformed character set"))
       }
-    loop(stack, Nil)
+    loop(stack, if(negated) IntervalTree.FullRange else IntervalTree())
   }
 
   /* Pops all the elements fromt the stack until we reach an alternative or an opening group,
@@ -283,12 +300,12 @@ class Parser(input: String) {
     state match {
       case NormalState =>
         ".[{()\\*+?|".contains(c)
-      case SetState(_) =>
+      case SetState(_, _) =>
         "\\[]".contains(c)
     }
 
   private def classable(c: Char): Boolean =
-    "dsw".contains(c)
+    "dswDSW".contains(c)
 
   private def nextToken(state: LexState, offset: Offset): Try[(Token, Offset)] =
     if(offset >= input.size) {
@@ -303,11 +320,17 @@ class Parser(input: String) {
         } else if(classable(input(offset + 1))) {
           // character class
           if(input(offset + 1) == 'd') {
-            Success(NUMBER_CLASS, offset + 2)
+            Success(NUMBER_CLASS(false), offset + 2)
           } else if(input(offset + 1) == 's') {
-            Success(SPACE_CLASS, offset + 2)
+            Success(SPACE_CLASS(false), offset + 2)
           } else if(input(offset + 1) == 'w') {
-            Success(WORD_CLASS, offset + 2)
+            Success(WORD_CLASS(false), offset + 2)
+          } else if(input(offset + 1) == 'D') {
+            Success(NUMBER_CLASS(true), offset + 2)
+          } else if(input(offset + 1) == 'S') {
+            Success(SPACE_CLASS(true), offset + 2)
+          } else if(input(offset + 1) == 'W') {
+            Success(WORD_CLASS(true), offset + 2)
           } else {
             Failure(new RegexParserException(offset + 1, s"Unknown escaped character '\\${input(offset + 1)}'"))
           }

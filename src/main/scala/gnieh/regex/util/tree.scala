@@ -14,9 +14,7 @@
 * limitations under the License.
 */
 package gnieh.regex
-package compiler
-
-import util._
+package util
 
 sealed trait ReNode
 
@@ -62,10 +60,10 @@ final case class Capture(n: ReNode) extends ReNode {
 
 /* A temporary node that is pushed onto the parsing stack and serves as marker
  * Typically, this is an opening parenthesis or bracket. */
-private[compiler] sealed trait Temporary extends ReNode {
+private[regex] sealed trait Temporary extends ReNode {
   val offset: Int
 }
-private[compiler] final case class CapturingStart(level: Int, offset: Int) extends Temporary
-private[compiler] final case class CharSetStart(level: Int, offset: Int) extends Temporary
-private[compiler] final case class Alternative(offset: Int) extends Temporary
+private[regex] final case class CapturingStart(level: Int, offset: Int) extends Temporary
+private[regex] final case class CharSetStart(level: Int, offset: Int) extends Temporary
+private[regex] final case class Alternative(offset: Int) extends Temporary
 

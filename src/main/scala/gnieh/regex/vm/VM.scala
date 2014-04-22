@@ -16,16 +16,18 @@
 package gnieh.regex
 package vm
 
+import util._
+
 import scala.annotation.tailrec
 
 import scala.collection.immutable.Queue
 
-class VM(program: Vector[Inst], nbSaved: Int) {
+object VM {
 
   /** Executes the given regular expression program with the given string input.
    *  It returns a lazily constructed streamm of all matches in the input.
    */
-  def exec(string: String): Option[(Int, Int, Vector[Int])] = {
+  def exec(program: Vector[Inst], nbSaved: Int, string: String): Option[(Int, Int, Vector[Int])] = {
     //println("executing:")
     //println(util.Debug.print(program))
     //println(s"with input: $string")
@@ -34,10 +36,10 @@ class VM(program: Vector[Inst], nbSaved: Int) {
     def loop(str: Seq[(Char, Int)], threads: List[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
       val res =
         if(str.isEmpty)
-          step(string.length, None, threads)
+          step(program, nbSaved, string.length, None, threads)
         else {
           val (char, idx) = str.head
-          step(idx, Some(char), threads)
+          step(program, nbSaved, idx, Some(char), threads)
         }
       res match {
         case Next(Nil) =>
@@ -54,30 +56,30 @@ class VM(program: Vector[Inst], nbSaved: Int) {
       }
     }
     // create and schedule the first thread in which the vritual machine executes the code
-    loop(string.zipWithIndex, schedule(RThread(0, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0).toList, None)
+    loop(string.zipWithIndex, schedule(program, RThread(0, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0).toList, None)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */
-  private def step(idx: Int, char: Option[Char], threads: List[RThread]) = {
+  private def step(program: Vector[Inst], nbSaved: Int, idx: Int, char: Option[Char], threads: List[RThread]) = {
     @tailrec
     def loop(threads: List[RThread], acc: Queue[RThread]): StepResult = threads match {
       case RThread(startIdx, pc, saved) :: tail =>
         //println(s"at index: $idx with char: $char")
         //println(s"threads: $threads")
-        fetch(pc) match {
+        fetch(program, pc) match {
           case AnyMatch() =>
             // any characters matches
-            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
+            loop(tail, schedule(program, RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
           case CharMatch(c) if char == Some(c) =>
             // the current character matches the expected one, just try the next thread and save the
             // next instruction in this thread for the next step
-            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
+            loop(tail, schedule(program, RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
           case CharMatch(_) =>
             // the current character does not match the expected one, discard this thread
             loop(tail, acc)
           case ClassMatch(tree) if char.isDefined && tree.contains(char.get) =>
             // the current character is in the expected class, schedule the next instruction in this thread and try further
-            loop(tail, schedule(RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
+            loop(tail, schedule(program, RThread(if(startIdx >= 0) startIdx else idx, pc + 1, saved), acc, idx + 1))
           case ClassMatch(_) =>
             // the current character is not is the expected range, discard this thread
             loop(tail, acc)
@@ -101,29 +103,31 @@ class VM(program: Vector[Inst], nbSaved: Int) {
     loop(threads, Queue())
   }
 
-  private def fetch(pc: Int) =
+  private def fetch(program: Vector[Inst], pc: Int) =
     if(pc >= 0 && pc < program.size)
       program(pc)
     else
       throw new RuntimeException("Invalid regular expression")
 
-  private def schedule(thread: RThread, queue: Queue[RThread], idx: Int): Queue[RThread] =
+  private def schedule(program: Vector[Inst], thread: RThread, queue: Queue[RThread], idx: Int): Queue[RThread] =
     if(queue.exists(_.pc == thread.pc))
       queue
     else {
-      fetch(thread.pc) match {
+      fetch(program, thread.pc) match {
         case Split(i1, i2) =>
           schedule(
+            program,
             RThread(thread.startIdx, i2, thread.saved),
             schedule(
+              program,
               RThread(thread.startIdx, i1, thread.saved),
               queue,
               idx),
             idx)
         case Jump(i) =>
-          schedule(RThread(thread.startIdx, i, thread.saved), queue, idx)
+          schedule(program, RThread(thread.startIdx, i, thread.saved), queue, idx)
         case Save(n) =>
-          schedule(RThread(thread.startIdx, thread.pc + 1, thread.saved.updated(n, idx)), queue, idx)
+          schedule(program, RThread(thread.startIdx, thread.pc + 1, thread.saved.updated(n, idx)), queue, idx)
         case _ =>
           queue.enqueue(thread)
       }

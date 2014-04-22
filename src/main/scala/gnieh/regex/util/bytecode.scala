@@ -14,9 +14,7 @@
 * limitations under the License.
 */
 package gnieh.regex
-package vm
-
-import util._
+package util
 
 sealed trait Inst
 

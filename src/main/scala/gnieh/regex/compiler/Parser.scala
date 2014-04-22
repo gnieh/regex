@@ -39,9 +39,7 @@ class RegexParserException(val offset: Int, msg: String) extends Exception(msg) 
  *
  *  @author Lucas Satabin
  */
-class Parser(input: String) {
-
-  require(input != null, "Input regular expression string cannot be null")
+object Parser {
 
   private sealed trait Token
   private case object DOT extends Token
@@ -79,14 +77,14 @@ class Parser(input: String) {
   // stack of already parsed regular expression parts
   private type Stack = List[ReNode]
 
-  def parsed: Try[ReNode] = {
+  def parse(input: String): Try[ReNode] = {
     @tailrec
     def loop(state: LexState, level: Int, stack: Stack, offset: Int): Try[Stack] =
       if(offset >= input.length) {
         Success(stack)
       } else {
         // XXX do not use map here to have a tail recuvrsive function
-        parseRe(state, level, stack, offset) match {
+        parseRe(input, state, level, stack, offset) match {
           case Success((newState, newLevel, newStack, newOffset)) =>
             //println(newStack)
             loop(newState, newLevel, newStack, newOffset)
@@ -112,8 +110,8 @@ class Parser(input: String) {
 
   /** Parses one regular expression, returning the new stack of parsed elements
    *  and the new offset if it succeeded */
-  private def parseRe(state: LexState, level: Int, stack: Stack, offset: Offset): Try[(LexState, Int, Stack, Offset)] =
-    nextToken(state, offset).flatMap {
+  private def parseRe(input: String, state: LexState, level: Int, stack: Stack, offset: Offset): Try[(LexState, Int, Stack, Offset)] =
+    nextToken(input, state, offset).flatMap {
       case (EOI, newOffset) =>
         Success(state, level, stack, newOffset)
       case (DOT, newOffset) =>
@@ -177,7 +175,7 @@ class Parser(input: String) {
           yield (state, level, Alternative(offset) :: newStack, newOffset)
       case (LBRACKET, newOffset) =>
         // character set started
-        nextToken(SetState(false, state), newOffset) map {
+        nextToken(input, SetState(false, state), newOffset) map {
           case (CHAR('^'), newOffset) =>
             (SetState(true, state), level + 1, CharSetStart(level, offset) :: stack, newOffset)
           case (_, _) =>
@@ -312,7 +310,7 @@ class Parser(input: String) {
   private def classable(c: Char): Boolean =
     "dswDSW".contains(c)
 
-  private def nextToken(state: LexState, offset: Offset): Try[(Token, Offset)] =
+  private def nextToken(input: String, state: LexState, offset: Offset): Try[(Token, Offset)] =
     if(offset >= input.size) {
       // EOI reached
       Success(EOI, offset)

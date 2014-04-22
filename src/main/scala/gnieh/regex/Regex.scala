@@ -16,25 +16,28 @@
 package gnieh.regex
 
 import compiler._
+import util._
 import vm._
 
 import scala.util.Failure
 
-
+/** This class provides a way to create and use regular expressions. It is a non backtracking implementation
+ *  based on the descrition from [Russ Cox](http://swtch.com/~rsc/regexp/).
+ *
+ *  @author Lucas Satabin
+ */
 class Regex(re: ReNode) {
 
   def this(source: String) =
-    this(new Parser(source).parsed.get)
+    this(Parser.parse(source).get)
 
   private lazy val (saved, compiled) = Compiler.compile(re)
 
   //println(util.Debug.print(compiled))
 
-  private lazy val vm = new VM(compiled, saved)
-
   /** Tells whether this regular expression is matched by the given input */
   def isMatchedBy(input: String): Boolean =
-    vm.exec(input).fold(false) {
+    VM.exec(compiled, saved, input).fold(false) {
       case (start, end, _) =>
         //println(s"$input matches from $start to $end")
         start == 0 && end == input.length
@@ -44,7 +47,7 @@ class Regex(re: ReNode) {
    *  If nothing matches, returns `None`*/
   def findFirstIn(input: String): Option[String] = {
     def find(input: String): Option[String] =
-      vm.exec(input) match {
+      VM.exec(compiled, saved, input) match {
         case Some((start, end, _)) =>
           Some(input.substring(start, end))
         case None if input.nonEmpty =>
@@ -58,7 +61,7 @@ class Regex(re: ReNode) {
   /** Finds all matches of this regular expression in the input. */
   def findAllIn(input: String): Iterator[String] = {
     def loop(input: String): Stream[String] =
-      vm.exec(input) match {
+      VM.exec(compiled, saved, input) match {
         case Some((start, end, _)) =>
           input.substring(start, end) #:: loop(input.substring(end))
         case None if input.nonEmpty =>
@@ -71,7 +74,7 @@ class Regex(re: ReNode) {
 
   def unapplySeq(input: String): Option[List[String]] =
     for {
-      (start, end, saved) <- vm.exec(input)
+      (start, end, saved) <- VM.exec(compiled, saved, input)
       if start == 0 && end == input.length && saved.length % 2 == 0
     } yield
       (for(Vector(s, e) <- saved.grouped(2))

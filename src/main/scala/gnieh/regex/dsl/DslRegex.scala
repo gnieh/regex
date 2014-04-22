@@ -16,7 +16,7 @@
 package gnieh.regex
 package dsl
 
-import compiler._
+import util._
 
 class DslRegex(val re: ReNode) extends Regex(re) {
 }

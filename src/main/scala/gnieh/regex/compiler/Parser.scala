@@ -34,8 +34,7 @@ class RegexParserException(val offset: Int, msg: String) extends Exception(msg) 
 }
 
 /** Parses a regular expression, accepts POSIX Extended Regular Expression syntax.
- *  The accepted grammar is as follows:
- *  TODO: document the accepted operators
+ *  See [[gnieh.regex.Regex]] for the accepted syntax.
  *
  *  @author Lucas Satabin
  */

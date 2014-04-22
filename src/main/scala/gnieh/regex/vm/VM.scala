@@ -22,6 +22,15 @@ import scala.annotation.tailrec
 
 import scala.collection.immutable.Queue
 
+/** A virtual machine executing the regular expression code against some input.
+ *  A run on some input returns the first match if any. It is stateless, thus executing the same
+ *  regular expression against the same input will always return the same result.
+ *
+ *  This is a thread safe, non-backtracking, tail-recursive implementation allowing
+ *  for efficient stack-less executions.
+ *
+ *  @author Lucas Satabin
+ */
 object VM {
 
   /** Executes the given regular expression program with the given string input.
@@ -86,15 +95,6 @@ object VM {
           case MatchFound =>
             // a match was found
             Matched(startIdx, idx, saved, acc.toList)
-          /*case Jump(next) =>
-            // simply jump to the next instruction
-            loop(RThread(startIdx, next, saved) :: tail, acc)
-          case Split(next1, next2) =>
-            // spawn a new thread and execute first instruction set in the current thread
-            loop(RThread(startIdx, next1, saved) :: RThread(startIdx, next2, saved) :: tail, acc)
-          case Save(i) =>
-            // save the current index in the appropriate register and try further
-            loop(RThread(startIdx, pc + 1, saved.updated(i, idx)) :: tail, acc)*/
         }
       case Nil =>
         // we executed all threads for this step, we can go to the next step

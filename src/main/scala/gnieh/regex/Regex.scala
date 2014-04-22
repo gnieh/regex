@@ -23,6 +23,22 @@ import scala.util.Failure
 
 /** This class provides a way to create and use regular expressions. It is a non backtracking implementation
  *  based on the descrition from [Russ Cox](http://swtch.com/~rsc/regexp/).
+ *  Following regular expressions are supported:
+ *   - `.` any character, possibly including newline (s=true)
+ *   - `[xyz]` character class
+ *   - `[^xyz]` negated character class
+ *   - `\d` a digit character (equivalent to `[0-9]`)
+ *   - `\D` a non digit character (equivalent to `[^0-9]`)
+ *   - `\w` an alphanumeric character (equivalent to `[A-Za-z0-9_]`)
+ *   - `\W` a non alphanumeric character (equivalent to `[^A-Za-z0-9_]`)
+ *   - `\s` a space character (equivalent to `[ \t\r\n\f]`)
+ *   - `\S` a non space character (equivalent to `[^ \t\r\n\f]`)
+ *   - `xy` `x` followed by `y`
+ *   - `x|y` `x` or `y` (prefer `x`)
+ *   - `x*` zero or more `x` (prefer more)
+ *   - `x+` one or more `x` (prefer more)
+ *   - `x?` zero or one `x` (prefer one)
+ *   - `(re)` numbered capturing group (starting at 1)
  *
  *  @author Lucas Satabin
  */

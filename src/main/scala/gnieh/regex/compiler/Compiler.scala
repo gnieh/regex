@@ -19,6 +19,11 @@ package compiler
 import vm._
 import util._
 
+/** The regular expression compiler compiles tree based regular expressions into
+ *  the target bytecode instructions
+ *
+ *  @author Lucas Satabin
+ */
 object Compiler {
 
   def compile(re: ReNode): (Int, Vector[Inst]) = {

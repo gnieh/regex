@@ -18,25 +18,11 @@ package gnieh.regex
 import compiler._
 import util._
 
+import scala.language.implicitConversions
+
 /** This package contains the DSL for building regular expressions.
  *  It is inspired by the [Re](http://re-lib.rubyforge.org/) library.
- *
- *  Following basic constructors are available:
- *   - `any` matches any character,
- *   - `any(classes)` matches any character in the classes. A character class
- *     is either a single character `c`, a range `a-z`, or a built-in class (`\d`, `\w`, `\s`, ...),
- *   - `digit` matches any digit (equivalent to `\d`),
- *   - `digits` matches digits (equivalent to `\d+`),
- *   - `empty` matches the empty string
- *   - `hexDigit` matches any hexadecimal digit (equivalent to `[A-Fa-f0-9]`),
- *   - `hexDigits` matches hexadecimal digits (equivalent to `[A-Fa-f0-9]+`),
- *   - `none(classes)` matches any character that is not in any of the classes,
- *   - `nonspace` matches any non space character (equivalent to `\S`),
- *   - `nonspaces` matches non space characters (equivalent to `\S+`),
- *   - `space` matches any space character (equivalent to `\s`),
- *   - `spaces` matches space characters (equivalent to `\s+`),
- *   - `word` matches any word (equivalent to `\w+`)
- *   - `wordChar` matches any word character (equivalent to `\w`)
+ *  It also provides some useful implicit conversions to be used more conveniently.
  *
  *  @author Lucas Satabin
  */
@@ -44,16 +30,76 @@ package object dsl {
 
   implicit class RichChar(val char: Char) extends AnyVal {
 
-    def --(that: Char): CharSet =
-      CharSet(IntervalTree() + CharRange(char, that))
+    def --(that: Char): CharRange =
+      CharRange(char, that)
 
   }
 
-  val digit: DslRegex =
-    new DslRegex('0' -- '9')
+  implicit def char2charrange(c: Char): CharRange =
+    CharRange(c)
 
-  val digits: DslRegex =
-    new DslRegex(Plus(digit.re))
+  /** Matches any character */
+  lazy val any: DslRegex =
+    new DslRegex(AnyChar)
+
+  /** Matches any character in the classes. A character class
+   *  is either a single character `c`, a range `a-z`
+   */
+  def any(classes: CharRange*): DslRegex =
+    new DslRegex(CharSet(IntervalTree(classes: _*)))
+
+  /** Matches any digit (equivalent to `[0-9]`) */
+  lazy val digit: DslRegex =
+    any('0' -- '9')
+
+  /** Matches digits (equivalent to `[0-9]+`) */
+  lazy val digits: DslRegex =
+    digit.oneOrMore
+
+  /** Matches the empty string */
+  lazy val empty: DslRegex =
+    new DslRegex(Empty)
+
+  /** Matches any hexadecimal digit (equivalent to `[A-Fa-f0-9]`) */
+  lazy val hexDigit: DslRegex =
+    any('A' -- 'F', 'a' -- 'f', '0' -- '9')
+
+  /** Matches hexadecimal digits (equivalent to `[A-Fa-f0-9]+`) */
+  lazy val hexDigits: DslRegex =
+    hexDigits.oneOrMore
+
+  /** Matches any character that is not in any of the classes */
+  def none(classes: CharRange*): DslRegex =
+    new DslRegex(CharSet(IntervalTree.FullRange -- classes))
+
+  /** Matches any non space character (equivalent to `\S`) */
+  lazy val nonspace: DslRegex =
+    none(' ', '\t', '\r', '\n', '\f')
+
+  /** Matches non space characters (equivalent to `\S+`) */
+  lazy val nonspaces: DslRegex =
+     nonspace.oneOrMore
+
+  /** Matches the literal characters of the string (special regular expression characters
+   *  are considered as raw characters */
+  def raw(str: String): DslRegex =
+    new DslRegex(str.map(SomeChar(_)).foldLeft(Empty: ReNode)(Concat(_, _)))
+
+  /** Matches any space character (equivalent to `\s`) */
+  lazy val space: DslRegex =
+    any(' ', '\t', '\r', '\n', '\f')
+
+  /** Matches space characters (equivalent to `\s+`) */
+  lazy val spaces: DslRegex =
+    space.oneOrMore
+
+  /** Matches any word (equivalent to `\w+`) */
+  lazy val word: DslRegex =
+    wordChar.oneOrMore
+
+  /** Matches any word character (equivalent to `\w`) */
+  lazy val wordChar: DslRegex =
+    any('A' -- 'Z', 'a' -- 'z', '0' -- '9', '_')
 
 }
 

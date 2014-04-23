@@ -32,6 +32,8 @@ sealed trait IntervalTree {
 
   def --(that: IntervalTree): IntervalTree
 
+  def --(ranges: Seq[CharRange]): IntervalTree
+
   def max: Char
 
   def height: Int
@@ -106,6 +108,9 @@ private final case class Node(range: CharRange, max: Char, left: IntervalTree, r
       this
   }
 
+  def --(ranges: Seq[CharRange]): IntervalTree =
+    ranges.foldLeft(this: IntervalTree)(_ - _)
+
   def ++(that: IntervalTree): IntervalTree = that match {
     case Node(range1, _, left1, right1) =>
       this + range1 ++ left1 ++ right1
@@ -172,6 +177,9 @@ private case object Leaf extends IntervalTree {
     this
 
   def --(that: IntervalTree): IntervalTree =
+    this
+
+  def --(ranges: Seq[CharRange]): IntervalTree =
     this
 
   def ++(that: IntervalTree): IntervalTree =

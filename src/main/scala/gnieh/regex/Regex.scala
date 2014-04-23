@@ -38,6 +38,9 @@ import scala.util.Failure
  *   - `x*` zero or more `x` (prefer more)
  *   - `x+` one or more `x` (prefer more)
  *   - `x?` zero or one `x` (prefer one)
+ *   - `x*?` zero or more `x` (prefer zero)
+ *   - `x+?` one or more `x` (prefer one)
+ *   - `x??` zero or one `x` (prefer zero)
  *   - `(re)` numbered capturing group (starting at 1)
  *
  *  @author Lucas Satabin

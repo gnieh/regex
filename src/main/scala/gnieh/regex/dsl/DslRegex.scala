@@ -18,6 +18,11 @@ package dsl
 
 import util._
 
+/** An instance of a regular expression that supports DSL methods for
+ *  combining them together
+ *
+ *  @author Lucas Satabin
+ */
 class DslRegex(val re: ReNode) extends Regex(re) {
 
   /** Matches `this` regular expression followed by `that` regular expression */
@@ -29,16 +34,16 @@ class DslRegex(val re: ReNode) extends Regex(re) {
     new DslRegex(Alt(this.re, that.re))
 
   /** Matches this regular expression zero or more times */
-  lazy val zeroOrMore: DslRegex =
-    new DslRegex(Star(re))
+  lazy val zeroOrMore: DslGreedyRegex =
+    new DslGreedyStar(re)
 
   /** Matches this regular expression one or more times */
-  lazy val oneOrMore: DslRegex =
-    new DslRegex(Plus(re))
+  lazy val oneOrMore: DslGreedyRegex =
+    new DslGreedyPlus(re)
 
   /** Matches this regular expression zero or one times */
-  lazy val optional: DslRegex =
-    new DslRegex(Opt(re))
+  lazy val optional: DslGreedyRegex =
+    new DslGreedyOpt(re)
 
   /** Matches the same regular expression and captures the result */
   lazy val capture: DslRegex =

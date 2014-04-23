@@ -148,18 +148,37 @@ object Parser {
       case (STAR, newOffset) =>
         // zero or more repetition, we pop the last element from the stack and
         // push the new repeated one
-        for(newStack <- reduceOne("*", stack, offset, Star))
-          yield (state, level, newStack, newOffset)
+        // determine whether it is greedy
+        nextToken(input, state, newOffset) flatMap {
+          case (OPT, newOffset) =>
+            for(newStack <- reduceOne("*", stack, offset, Star(_, false)))
+              yield (state, level, newStack, newOffset)
+          case (_, _) =>
+            for(newStack <- reduceOne("*", stack, offset, Star(_, true)))
+              yield (state, level, newStack, newOffset)
+        }
       case (PLUS, newOffset) =>
         // one or more repetition, we pop the last element from the stack and
         // push the new repeated one
-        for(newStack <- reduceOne("+", stack, offset, Plus))
-          yield (state, level, newStack, newOffset)
+        nextToken(input, state, newOffset) flatMap {
+          case (OPT, newOffset) =>
+            for(newStack <- reduceOne("+", stack, offset, Plus(_, false)))
+              yield (state, level, newStack, newOffset)
+          case (_, _) =>
+            for(newStack <- reduceOne("+", stack, offset, Plus(_, true)))
+              yield (state, level, newStack, newOffset)
+        }
       case (OPT, newOffset) =>
         // optional element, we pop the last element from the stack and
         // push the new repeated one
-        for(newStack <- reduceOne("?", stack, offset, Opt))
-          yield (state, level, newStack, newOffset)
+        nextToken(input, state, newOffset) flatMap {
+          case (OPT, newOffset) =>
+            for(newStack <- reduceOne("?", stack, offset, Opt(_, false)))
+              yield (state, level, newStack, newOffset)
+          case (_, _) =>
+            for(newStack <- reduceOne("?", stack, offset, Opt(_, true)))
+              yield (state, level, newStack, newOffset)
+        }
       case (LPAR, newOffset) =>
         // opening a capturing group, push the temporary marker onto the stack and keep going
         Success(state, level + 1, CapturingStart(level, offset) :: stack, newOffset)

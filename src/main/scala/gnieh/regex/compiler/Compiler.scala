@@ -53,25 +53,50 @@ object Compiler {
           val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e1)
           val (currentSave2, idx2, v2) = loop(currentSave1, idx1 + 1, e2)
           (currentSave2, idx2, Vector(Split(startIdx + 1, idx1 + 1)) ++ v1 ++ Vector(Jump(idx2)) ++ v2)
-        case Opt(e) =>
+        case Opt(e, true) =>
+          // greedy version
           // split L1, L2
           // L1: comp(e)
           // L2:
           val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e)
           (currentSave1, idx1, Vector(Split(startIdx + 1, idx1)) ++ v1)
-        case Star(e) =>
+        case Opt(e, false) =>
+          // non greedy version
+          // split L2, L1
+          // L1: comp(e)
+          // L2:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e)
+          (currentSave1, idx1, Vector(Split(idx1, startIdx + 1)) ++ v1)
+        case Star(e, true) =>
+          // greedy version
           // L1: split L2, L3
           // L2: comp(e)
           // jump L1
           // L3:
           val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e)
           (currentSave1, idx1 + 1, Vector(Split(startIdx + 1, idx1 + 1)) ++ v1 ++ Vector(Jump(startIdx)))
-        case Plus(e) =>
+        case Star(e, false) =>
+          // non greedy version
+          // L1: split L3, L2
+          // L2: comp(e)
+          // jump L1
+          // L3:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx + 1, e)
+          (currentSave1, idx1 + 1, Vector(Split(idx1 + 1, startIdx + 1)) ++ v1 ++ Vector(Jump(startIdx)))
+        case Plus(e, true) =>
+          // greedy version
           // L1: comp(e)
           // split L1, L2
           // L2:
           val (currentSave1, idx1, v1) = loop(currentSave, startIdx, e)
           (currentSave1, idx1 + 1, v1 ++ Vector(Split(startIdx, idx1 + 1)))
+        case Plus(e, false) =>
+          // greedy version
+          // L1: comp(e)
+          // split L2, L1
+          // L2:
+          val (currentSave1, idx1, v1) = loop(currentSave, startIdx, e)
+          (currentSave1, idx1 + 1, v1 ++ Vector(Split(idx1 + 1, startIdx)))
         case CharSet(ranges) =>
           // class ranges
           (currentSave, startIdx + 1, Vector(ClassMatch(ranges)))

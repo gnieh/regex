@@ -56,7 +56,7 @@ object VM {
           lastMatch
         case Next(threads) =>
           loop(str.tail, threads, lastMatch)
-        case Matched(start, end, saved, threads) if threads.nonEmpty =>
+        case Matched(start, end, saved, threads) if threads.nonEmpty && str.nonEmpty =>
           // a match was found but if some higher priority threads still exist
           // try if we find a longer match
           loop(str.tail, threads, Some(start, end, saved))

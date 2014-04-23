@@ -23,7 +23,7 @@ import util._
  *
  *  @author Lucas Satabin
  */
-class DslRegex(val re: ReNode) extends Regex(re) {
+class DslRegex(val re: ReNode) extends Regex(re, None) {
 
   /** Matches `this` regular expression followed by `that` regular expression */
   def +(that: DslRegex): DslRegex =

@@ -45,10 +45,10 @@ import scala.util.Failure
  *
  *  @author Lucas Satabin
  */
-class Regex(re: ReNode) {
+class Regex(re: ReNode, source: Option[String]) {
 
   def this(source: String) =
-    this(Parser.parse(source).get)
+    this(Parser.parse(source).get, Some(source))
 
   private lazy val (saved, compiled) = Compiler.compile(re)
 
@@ -64,11 +64,19 @@ class Regex(re: ReNode) {
 
   /** Finds the first match of this regular expression in the input.
    *  If nothing matches, returns `None`*/
-  def findFirstIn(input: String): Option[String] = {
-    def find(input: String): Option[String] =
+  def findFirstIn(input: String): Option[String] =
+    for {
+      m <- findFirstMatchIn(input)
+      matched <- m.matched
+    } yield matched
+
+  /** Finds the first match of this regular expression in the input.
+   *  If nothing matches, returns `None`*/
+  def findFirstMatchIn(input: String): Option[Match] = {
+    def find(input: String): Option[Match] =
       VM.exec(compiled, saved, input) match {
-        case Some((start, end, _)) =>
-          Some(input.substring(start, end))
+        case Some((start, end, groups)) =>
+          Some(new Match(start, end, groups, input))
         case None if input.nonEmpty =>
           find(input.tail)
         case None =>
@@ -78,11 +86,18 @@ class Regex(re: ReNode) {
   }
 
   /** Finds all matches of this regular expression in the input. */
-  def findAllIn(input: String): Iterator[String] = {
-    def loop(input: String): Stream[String] =
+  def findAllIn(input: String): Iterator[String] =
+    for {
+      m <- findAllMatchIn(input)
+      matched <- m.matched
+    } yield matched
+
+  /** Finds all matches of this regular expression in the input. */
+  def findAllMatchIn(input: String): Iterator[Match] = {
+    def loop(input: String): Stream[Match] =
       VM.exec(compiled, saved, input) match {
-        case Some((start, end, _)) =>
-          input.substring(start, end) #:: loop(input.substring(end))
+        case Some((start, end, groups)) =>
+          new Match(start, end, groups, input) #:: loop(input.substring(end))
         case None if input.nonEmpty =>
           loop(input.tail)
         case None =>
@@ -94,16 +109,16 @@ class Regex(re: ReNode) {
   def unapplySeq(input: String): Option[List[String]] =
     for {
       (start, end, saved) <- VM.exec(compiled, saved, input)
-      if start == 0 && end == input.length && saved.length % 2 == 0
+      if start == 0 && end == input.size && saved.length % 2 == 0
     } yield
-      (for(Vector(s, e) <- saved.grouped(2))
+      for(Vector(s, e) <- saved.grouped(2).toList)
         yield if(s == -1 || e == -1)
           null
         else
-          input.substring(s, e)).toList
+          input.substring(s, e)
 
   override def toString =
-    re.toString
+    source.getOrElse(re.toString)
 
 }
 

@@ -1,4 +1,4 @@
-Gnieh Regex
+Gnieh Regex [![Build Status](https://travis-ci.org/gnieh/regex.svg?branch=master)](https://travis-ci.org/gnieh/regex)
 ===========
 
 An efficient non backtracking regular expression implementation in scala.

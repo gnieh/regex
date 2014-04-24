@@ -107,6 +107,15 @@ object Parser {
       }
   }
 
+  // Some built-in character classes
+  private lazy val anyChar = CharRangeSet(CharRange(Char.MinValue, Char.MaxValue))
+  private lazy val digit = CharRangeSet(CharRange('0', '9'))
+  private lazy val nonDigit = digit.negate
+  private lazy val alphaNum = CharRangeSet(CharRange('A', 'Z'), CharRange('a', 'z'), CharRange('0', '9'), CharRange('_'))
+  private lazy val nonAlphaNum = alphaNum.negate
+  private lazy val space = CharRangeSet(CharRange(' '), CharRange('\t'), CharRange('\r'), CharRange('\n'), CharRange('\f'))
+  private lazy val nonSpace = space.negate
+
   /** Parses one regular expression, returning the new stack of parsed elements
    *  and the new offset if it succeeded */
   private def parseRe(input: String, state: LexState, level: Int, stack: Stack, offset: Offset): Try[(LexState, Int, Stack, Offset)] =
@@ -119,32 +128,13 @@ object Parser {
         Success(state, level, SomeChar(c) :: stack, newOffset)
       case (NUMBER_CLASS(negated), newOffset) =>
         // number class is syntactic sugar for [0-9]
-        val interval =
-          if(negated)
-            IntervalTree(CharRange(Char.MinValue, '0' - 1), CharRange('9' + 1, Char.MaxValue))
-          else
-            IntervalTree(CharRange('0', '9'))
-        Success(state, level, CharSet(interval) :: stack, newOffset)
+        Success(state, level, CharSet(if(negated) nonDigit else digit) :: stack, newOffset)
       case (WORD_CLASS(negated), newOffset) =>
         // word class is syntactic sugar for [A-Za-z0-9_]
-        val interval =
-          IntervalTree(
-            CharRange('A', 'Z'),
-            CharRange('a', 'z'),
-            CharRange('0', '9')
-          )
-        Success(state, level, CharSet(if(negated) IntervalTree.FullRange -- interval else interval) :: stack, newOffset)
+        Success(state, level, CharSet(if(negated) nonAlphaNum else alphaNum) :: stack, newOffset)
       case (SPACE_CLASS(negated), newOffset) =>
         // space class is syntactic sugar for [ \t\r\n\f]
-        val interval =
-          IntervalTree(
-            CharRange(' '),
-            CharRange('\t'),
-            CharRange('\r'),
-            CharRange('\n'),
-            CharRange('\f')
-          )
-        Success(state, level, CharSet(if(negated) IntervalTree.FullRange -- interval else interval) :: stack, newOffset)
+        Success(state, level, CharSet(if(negated) nonSpace else space) :: stack, newOffset)
       case (STAR, newOffset) =>
         // zero or more repetition, we pop the last element from the stack and
         // push the new repeated one
@@ -257,17 +247,17 @@ object Parser {
    * the nodes, and pushes the new alternative node */
   private def reduceCharSet(negated: Boolean, level: Int, stack: Stack, offset: Offset): Try[Stack] = {
     @tailrec
-    def loop(stack: Stack, acc: IntervalTree): Try[Stack] =
+    def loop(stack: Stack, acc: CharRangeSet): Try[Stack] =
       stack match {
         case CharSetStart(`level`, _) :: tail =>
           // we found the matching opening node
           acc match {
-            case IntervalTree() =>
+            case AVL() =>
               Success(tail)
-            case IntervalTree(CharRange(c1, c2)) if c1 == c2 =>
+            case AVL(CharRange(c1, c2)) if c1 == c2 && !negated =>
               Success(SomeChar(c1) :: tail)
             case _ =>
-              Success(CharSet(acc) :: tail)
+              Success(CharSet(if(negated) acc.negate else acc) :: tail)
           }
         case (tmp: Temporary) :: _ =>
           Failure(new RegexParserException(tmp.offset, "Malformed regular expression"))
@@ -276,25 +266,16 @@ object Parser {
           Failure(new RegexParserException(off + 1, "Malformed range"))
         case SomeChar(c1) :: SomeChar('-') :: SomeChar(c2) :: tail if c2 <= c1 =>
           // well-formed range
-          if(negated)
-            loop(tail, acc - CharRange(c2, c1))
-          else
-            loop(tail, acc + CharRange(c2, c1))
+          loop(tail, acc + CharRange(c2, c1))
         case SomeChar(c) :: tail =>
           // any other character
-          if(negated)
-            loop(tail, acc - CharRange(c))
-          else
-            loop(tail, acc + CharRange(c))
+          loop(tail, acc + CharRange(c))
         case CharSet(chars) :: tail =>
-          if(negated)
-            loop(tail, acc -- chars)
-          else
             loop(tail, acc ++ chars)
         case n :: tail =>
           Failure(new RegexParserException(offset, "Malformed character set"))
       }
-    loop(stack, if(negated) IntervalTree.FullRange else IntervalTree())
+    loop(stack, new CharRangeSet(Nil))
   }
 
   /* Pops all the elements fromt the stack until we reach an alternative or an opening group,

@@ -99,7 +99,7 @@ object Compiler {
           (currentSave1, idx1 + 1, v1 ++ Vector(Split(idx1 + 1, startIdx)))
         case CharSet(ranges) =>
           // class ranges
-          (currentSave, startIdx + 1, Vector(ClassMatch(ranges)))
+          (currentSave, startIdx + 1, Vector(ClassMatch(ranges.toTree)))
         case Capture(e) =>
           // save n
           // comp(e)

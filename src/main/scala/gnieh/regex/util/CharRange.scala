@@ -16,7 +16,7 @@
 package gnieh.regex
 package util
 
-case class CharRange(start: Char, end: Char) {
+case class CharRange(start: Char, end: Char) extends Ordered[CharRange] {
 
   def contains(c: Char): Boolean =
     c >= start && c <= end
@@ -26,6 +26,35 @@ case class CharRange(start: Char, end: Char) {
 
   def includes(that: CharRange): Boolean =
     this.start <= that.start && this.end >= that.end
+
+  def union(that: CharRange): CharRange = {
+    assume(this.intersects(that), "Trying to take union of disjoint ranges")
+    // these are min/max, but it avoids conversion as standard min/max functions return integers
+    val start1 = if(this.start <= that.start) this.start else that.start
+    val end1 = if(this.end >= that.end) this.end else that.end
+    CharRange(start1, end1)
+  }
+
+  def diff(that: CharRange): (Option[CharRange], Option[CharRange]) = {
+    assume(this.includes(that), "Trying to make substract a range not included in this one")
+    if(this == that)
+      (None, None)
+    else if(this.start == that.start)
+      (None, Some(CharRange((that.end + 1).toChar, this.end)))
+    else if(this.end == that.end)
+      (Some(CharRange(this.start, (that.start - 1).toChar)), None)
+    else
+      (Some(CharRange(this.start, (that.start - 1).toChar)), Some(CharRange((that.end + 1).toChar, this.end)))
+  }
+
+  def compare(that: CharRange): Int =
+    this.start -that.start
+
+  def before(c: Char): Boolean =
+    this.end < c
+
+  def after(c: Char): Boolean =
+    this.start > c
 
   override def toString =
     if(start == end)

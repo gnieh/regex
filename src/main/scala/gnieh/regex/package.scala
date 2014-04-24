@@ -15,7 +15,11 @@
 */
 package gnieh
 
+import scala.collection.immutable.NumericRange
+
 package object regex {
+
+  type CharClass = NumericRange[Char]
 
   implicit class RegexString(val string: String) extends AnyVal {
 

@@ -46,7 +46,7 @@ package object dsl {
    *  is either a single character `c`, a range `a-z`
    */
   def any(classes: CharRange*): DslRegex =
-    new DslRegex(CharSet(IntervalTree(classes: _*)))
+    new DslRegex(CharSet(CharRangeSet(classes: _*)))
 
   /** Matches any digit (equivalent to `[0-9]`) */
   lazy val digit: DslRegex =
@@ -70,7 +70,7 @@ package object dsl {
 
   /** Matches any character that is not in any of the classes */
   def none(classes: CharRange*): DslRegex =
-    new DslRegex(CharSet(IntervalTree.FullRange -- classes))
+    new DslRegex(CharSet(CharRangeSet(classes: _*).negate))
 
   /** Matches any non space character (equivalent to `\S`) */
   lazy val nonspace: DslRegex =

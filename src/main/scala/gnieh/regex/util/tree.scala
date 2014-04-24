@@ -50,7 +50,7 @@ final case class Opt(n: ReNode, greedy: Boolean) extends ReNode {
   override def toString = s"$n?"
 }
 
-final case class CharSet(chars: IntervalTree) extends ReNode {
+final case class CharSet(chars: CharRangeSet) extends ReNode {
   override def toString = s"$chars"
 }
 

@@ -26,7 +26,7 @@ final case class AnyMatch() extends Inst {
   override def toString = "any"
 }
 
-final case class ClassMatch(clazz: IntervalTree) extends Inst {
+final case class ClassMatch(clazz: AVL) extends Inst {
   override def toString = s"class $clazz"
 }
 

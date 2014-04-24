@@ -68,7 +68,7 @@ class CharRangeSet(val ranges: List[CharRange]) {
               // we were at the beginning of the enclosing range, negate the rest
               loop(r, tail, acc)
             case (None, None) =>
-              // we were equal to the enclosing range, nothing else to to
+              // we were equal to the enclosing range, nothing else to do
               acc.reverse
           }
         case head :: tail =>
@@ -90,7 +90,7 @@ class CharRangeSet(val ranges: List[CharRange]) {
 
 object CharRangeSet {
   def apply(ranges: CharRange*): CharRangeSet =
-    new CharRangeSet(ranges.toList)
+    ranges.foldLeft(new CharRangeSet(Nil))(_ + _)
 
 }
 

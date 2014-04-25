@@ -73,8 +73,12 @@ object VM {
   /* given the list of current thread and the currently inspected character, execute one step */
   private def step(program: Vector[Inst], nbSaved: Int, idx: Int, char: Option[Char], threads: Queue[RThread]) = {
     @tailrec
-    def loop(threads: Queue[RThread], acc: Queue[RThread]): StepResult = threads.dequeueOption match {
-      case Some((RThread(startIdx, pc, saved), tail)) =>
+    def loop(threads: Queue[RThread], acc: Queue[RThread]): StepResult =
+      if(threads.isEmpty) {
+        // we executed all threads for this step, we can go to the next step
+        Next(acc)
+      } else {
+        val ((RThread(startIdx, pc, saved), tail)) = threads.dequeue
         //println(s"at index: $idx with char: $char")
         //println(s"threads: $threads")
         fetch(program, pc) match {
@@ -98,10 +102,7 @@ object VM {
             // a match was found
             Matched(startIdx, idx, saved, acc)
         }
-      case None =>
-        // we executed all threads for this step, we can go to the next step
-        Next(acc)
-    }
+      }
     loop(threads, Queue())
   }
 

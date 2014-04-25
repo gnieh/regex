@@ -5,7 +5,7 @@ import Keys._
 import com.typesafe.sbt.osgi.SbtOsgi._
 import com.typesafe.sbt.osgi.OsgiKeys
 
-object DiffsonBuild extends Build {
+object RegexBuild extends Build {
 
   lazy val regex = (Project(id = "regex",
     base = file(".")) settings (

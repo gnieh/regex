@@ -139,8 +139,8 @@ object Parser {
         // zero or more repetition, we pop the last element from the stack and
         // push the new repeated one
         // determine whether it is greedy
-        nextToken(input, state, newOffset) flatMap {
-          case (OPT, newOffset) =>
+        nextRawToken(input, newOffset) flatMap {
+          case (CHAR('?'), newOffset) =>
             for(newStack <- reduceOne("*", stack, offset, Star(_, false)))
               yield (state, level, newStack, newOffset)
           case (_, _) =>
@@ -150,8 +150,9 @@ object Parser {
       case (PLUS, newOffset) =>
         // one or more repetition, we pop the last element from the stack and
         // push the new repeated one
-        nextToken(input, state, newOffset) flatMap {
-          case (OPT, newOffset) =>
+        // determine whether it is greedy
+        nextRawToken(input, newOffset) flatMap {
+          case (CHAR('?'), newOffset) =>
             for(newStack <- reduceOne("+", stack, offset, Plus(_, false)))
               yield (state, level, newStack, newOffset)
           case (_, _) =>
@@ -161,8 +162,9 @@ object Parser {
       case (OPT, newOffset) =>
         // optional element, we pop the last element from the stack and
         // push the new repeated one
-        nextToken(input, state, newOffset) flatMap {
-          case (OPT, newOffset) =>
+        // determine whether it is greedy
+        nextRawToken(input, newOffset) flatMap {
+          case (CHAR('?'), newOffset) =>
             for(newStack <- reduceOne("?", stack, offset, Opt(_, false)))
               yield (state, level, newStack, newOffset)
           case (_, _) =>
@@ -183,7 +185,7 @@ object Parser {
           yield (state, level, Alternative(offset) :: newStack, newOffset)
       case (LBRACKET, newOffset) =>
         // character set started
-        nextToken(input, SetState(false, state), newOffset) map {
+        nextRawToken(input, newOffset) map {
           case (CHAR('^'), newOffset) =>
             (SetState(true, state), level + 1, CharSetStart(level, offset) :: stack, newOffset)
           case (_, _) =>
@@ -308,6 +310,15 @@ object Parser {
 
   private def classable(c: Char): Boolean =
     "dswDSW".contains(c)
+
+  private def nextRawToken(input: String, offset: Offset): Try[(Token, Offset)] =
+    if(offset >= input.size) {
+      // EOI reached
+      Success(EOI, offset)
+    } else {
+      // just return the read character
+      Success(CHAR(input(offset)), offset + 1)
+    }
 
   private def nextToken(input: String, state: LexState, offset: Offset): Try[(Token, Offset)] =
     if(offset >= input.size) {

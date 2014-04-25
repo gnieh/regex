@@ -42,7 +42,7 @@ object VM {
     //println(s"with input: $string")
 
     @tailrec
-    def loop(str: Seq[(Char, Int)], threads: List[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
+    def loop(str: Seq[(Char, Int)], threads: Queue[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
       val res =
         if(str.isEmpty)
           step(program, nbSaved, string.length, None, threads)
@@ -51,7 +51,7 @@ object VM {
           step(program, nbSaved, idx, Some(char), threads)
         }
       res match {
-        case Next(Nil) =>
+        case Next(Queue()) =>
           // did not match
           lastMatch
         case Next(threads) =>
@@ -65,14 +65,14 @@ object VM {
       }
     }
     // create and schedule the first thread in which the vritual machine executes the code
-    loop(string.zipWithIndex, schedule(program, RThread(0, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0).toList, None)
+    loop(string.zipWithIndex, schedule(program, RThread(0, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0), None)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */
-  private def step(program: Vector[Inst], nbSaved: Int, idx: Int, char: Option[Char], threads: List[RThread]) = {
+  private def step(program: Vector[Inst], nbSaved: Int, idx: Int, char: Option[Char], threads: Queue[RThread]) = {
     @tailrec
-    def loop(threads: List[RThread], acc: Queue[RThread]): StepResult = threads match {
-      case RThread(startIdx, pc, saved) :: tail =>
+    def loop(threads: Queue[RThread], acc: Queue[RThread]): StepResult = threads.dequeueOption match {
+      case Some((RThread(startIdx, pc, saved), tail)) =>
         //println(s"at index: $idx with char: $char")
         //println(s"threads: $threads")
         fetch(program, pc) match {
@@ -94,11 +94,11 @@ object VM {
             loop(tail, acc)
           case MatchFound =>
             // a match was found
-            Matched(startIdx, idx, saved, acc.toList)
+            Matched(startIdx, idx, saved, acc)
         }
-      case Nil =>
+      case None =>
         // we executed all threads for this step, we can go to the next step
-        Next(acc.toList)
+        Next(acc)
     }
     loop(threads, Queue())
   }
@@ -138,6 +138,6 @@ object VM {
 case class RThread(startIdx: Int, pc: Int, saved: Vector[Int])
 
 sealed trait StepResult
-final case class Matched(start: Int, end: Int, saved: Vector[Int], threads: List[RThread]) extends StepResult
-final case class Next(threads: List[RThread]) extends StepResult
+final case class Matched(start: Int, end: Int, saved: Vector[Int], threads: Queue[RThread]) extends StepResult
+final case class Next(threads: Queue[RThread]) extends StepResult
 

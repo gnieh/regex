@@ -70,4 +70,12 @@ object DiffsonBuild extends Build {
     )
   )
 
+  lazy val benchmarks =
+    Project(id = "benchmarks", base = file("benchmarks")) dependsOn(regex) settings(
+      scalaVersion := "2.11.0",
+      libraryDependencies += "com.github.axel22" %% "scalameter" % "0.5-M2",
+      testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
+      parallelExecution in Test := false
+    )
+
 }

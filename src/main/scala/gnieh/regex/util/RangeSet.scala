@@ -22,7 +22,7 @@ import scala.annotation.tailrec
  *
  *  @author Lucas Satabin
  */
-class CharRangeSet(val ranges: List[CharRange]) {
+class CharRangeSet(val ranges: List[CharRange]) extends Serializable {
 
   def +(range: CharRange): CharRangeSet = {
     @tailrec

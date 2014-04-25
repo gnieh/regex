@@ -22,7 +22,7 @@ package gnieh.regex
  *
  *  @author Lucas Satabin
  */
-class Match(val start: Int, val end: Int, groups: Vector[Int], val source: String) {
+class Match(val start: Int, val end: Int, groups: Vector[Int], val source: String) extends Serializable {
 
   /** Returns the substring matching the given group number if any */
   def group(i: Int): Option[String] =

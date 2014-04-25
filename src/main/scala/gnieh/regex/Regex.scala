@@ -45,7 +45,7 @@ import scala.util.Failure
  *
  *  @author Lucas Satabin
  */
-class Regex(re: ReNode, source: Option[String]) {
+class Regex(re: ReNode, source: Option[String]) extends Serializable {
 
   def this(source: String) =
     this(Parser.parse(source).get, Some(source))

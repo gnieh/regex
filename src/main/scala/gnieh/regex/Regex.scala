@@ -97,8 +97,13 @@ class Regex(re: ReNode, source: Option[String]) extends Serializable {
     def loop(startIdx: Int): Stream[Match] =
       VM.exec(compiled, saved, startIdx, input) match {
         case Some((start, end, groups)) =>
-          // TODO check if this can match empty string, to avoid endless loops
-          new Match(start, end, groups, input) #:: loop(end)
+          val m = new Match(start, end, groups, input)
+          if(start == end && end == input.size)
+            // this is an empty match and we reach the end of the input
+            // just return this match and stop
+            Stream(m)
+          else
+            m #:: loop(end)
         case None if startIdx < input.size =>
           loop(startIdx + 1)
         case None =>

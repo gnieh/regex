@@ -44,7 +44,7 @@ class Match(val start: Int, val end: Int, groups: Vector[Int], val source: Strin
 
   /** Returns the matched substring, or `None` if none */
   def matched: Option[String] =
-    if(start >= 0 && start < end && end <= source.size)
+    if(start >= 0 && start <= end && end <= source.size)
       Some(source.substring(start, end))
     else
       None
@@ -55,6 +55,9 @@ class Match(val start: Int, val end: Int, groups: Vector[Int], val source: Strin
       Vector(startMatch, endMatch) <- groups.grouped(2).toList
       if startMatch >= 0 && startMatch <= endMatch && endMatch <= source.size
     } yield source.substring(startMatch, endMatch)
+
+  override def toString =
+    matched.getOrElse("")
 
 }
 

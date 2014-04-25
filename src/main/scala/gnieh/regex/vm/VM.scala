@@ -36,36 +36,38 @@ object VM {
   /** Executes the given regular expression program with the given string input.
    *  It returns a lazily constructed streamm of all matches in the input.
    */
-  def exec(program: Vector[Inst], nbSaved: Int, string: String): Option[(Int, Int, Vector[Int])] = {
+  def exec(program: Vector[Inst], nbSaved: Int, startIdx: Int, string: String): Option[(Int, Int, Vector[Int])] = {
     //println("executing:")
     //println(util.Debug.print(program))
     //println(s"with input: $string")
 
     @tailrec
-    def loop(str: Seq[(Char, Int)], threads: Queue[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
+    def loop(idx: Int, threads: Queue[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
       val res =
-        if(str.isEmpty)
+        if(idx >= string.size)
           step(program, nbSaved, string.length, None, threads)
         else {
-          val (char, idx) = str.head
-          step(program, nbSaved, idx, Some(char), threads)
+          step(program, nbSaved, idx, Some(string(idx)), threads)
         }
       res match {
         case Next(Queue()) =>
           // did not match
           lastMatch
         case Next(threads) =>
-          loop(str.tail, threads, lastMatch)
-        case Matched(start, end, saved, threads) if threads.nonEmpty && str.nonEmpty =>
+          loop(idx + 1, threads, lastMatch)
+        case Matched(start, end, saved, threads) if threads.nonEmpty && idx < string.size =>
           // a match was found but if some higher priority threads still exist
           // try if we find a longer match
-          loop(str.tail, threads, Some(start, end, saved))
+          loop(idx + 1, threads, Some(start, end, saved))
         case Matched(start, end, saved, threads) =>
           Some(start, end, saved)
       }
     }
     // create and schedule the first thread in which the vritual machine executes the code
-    loop(string.zipWithIndex, schedule(program, RThread(0, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), 0), None)
+    loop(
+      startIdx,
+      schedule(program, RThread(startIdx, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), startIdx),
+      None)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */

@@ -56,7 +56,7 @@ class Regex(re: ReNode, source: Option[String]) extends Serializable {
 
   /** Tells whether this regular expression is matched by the given input */
   def isMatchedBy(input: String): Boolean =
-    VM.exec(compiled, saved, input).fold(false) {
+    VM.exec(compiled, saved, 0, input).fold(false) {
       case (start, end, _) =>
         //println(s"$input matches from $start to $end")
         start == 0 && end == input.length
@@ -74,7 +74,7 @@ class Regex(re: ReNode, source: Option[String]) extends Serializable {
    *  If nothing matches, returns `None`*/
   def findFirstMatchIn(input: String): Option[Match] = {
     def find(input: String): Option[Match] =
-      VM.exec(compiled, saved, input) match {
+      VM.exec(compiled, saved, 0, input) match {
         case Some((start, end, groups)) =>
           Some(new Match(start, end, groups, input))
         case None if input.nonEmpty =>
@@ -94,28 +94,24 @@ class Regex(re: ReNode, source: Option[String]) extends Serializable {
 
   /** Finds all matches of this regular expression in the input. */
   def findAllMatchIn(input: String): Iterator[Match] = {
-    def loop(input: String): Stream[Match] =
-      VM.exec(compiled, saved, input) match {
+    def loop(startIdx: Int): Stream[Match] =
+      VM.exec(compiled, saved, startIdx, input) match {
         case Some((start, end, groups)) =>
-          new Match(start, end, groups, input) #:: loop(input.substring(end))
-        case None if input.nonEmpty =>
-          loop(input.tail)
+          // TODO check if this can match empty string, to avoid endless loops
+          new Match(start, end, groups, input) #:: loop(end)
+        case None if startIdx < input.size =>
+          loop(startIdx + 1)
         case None =>
           Stream.empty
       }
-    loop(input).iterator
+    loop(0).iterator
   }
 
   def unapplySeq(input: String): Option[List[String]] =
     for {
-      (start, end, saved) <- VM.exec(compiled, saved, input)
-      if start == 0 && end == input.size && saved.length % 2 == 0
-    } yield
-      for(Vector(s, e) <- saved.grouped(2).toList)
-        yield if(s == -1 || e == -1)
-          null
-        else
-          input.substring(s, e)
+      m @ Match(start, end) <- findFirstMatchIn(input)
+      if start == 0 && end == input.size
+    } yield m.subgroups
 
   override def toString =
     source.getOrElse(re.toString)

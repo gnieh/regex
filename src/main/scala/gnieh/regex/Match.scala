@@ -35,7 +35,7 @@ class Match(val start: Int, val end: Int, groups: Vector[Int], val source: Strin
       else {
         val startMatch = groups(idx)
         val endMatch = groups(idx + 1)
-        if(startMatch >= 0 && startMatch < endMatch && endMatch <= source.size)
+        if(startMatch >= 0 && startMatch <= endMatch && endMatch <= source.size)
           Some(source.substring(startMatch, endMatch))
         else
           None
@@ -53,8 +53,15 @@ class Match(val start: Int, val end: Int, groups: Vector[Int], val source: Strin
   def subgroups: List[String] =
     for {
       Vector(startMatch, endMatch) <- groups.grouped(2).toList
-      if startMatch >= 0 && startMatch < endMatch && endMatch <= source.size
+      if startMatch >= 0 && startMatch <= endMatch && endMatch <= source.size
     } yield source.substring(startMatch, endMatch)
+
+}
+
+object Match {
+
+  def unapply(m: Match): Option[(Int, Int)] =
+    Some(m.start, m.end)
 
 }
 

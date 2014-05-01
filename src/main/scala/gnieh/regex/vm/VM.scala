@@ -20,8 +20,6 @@ import util._
 
 import scala.annotation.tailrec
 
-import scala.collection.immutable.Queue
-
 /** A virtual machine executing the regular expression code against some input.
  *  A run on some input returns the first match if any. It is stateless, thus executing the same
  *  regular expression against the same input will always return the same result.
@@ -44,7 +42,7 @@ object VM {
     val emptySaved = Vector.fill(nbSaved * 2)(-1)
 
     @tailrec
-    def loop(idx: Int, threads: Queue[RThread], lastStart: Int, lastEnd: Int, lastSaved: Vector[Int]): (Int, Int, Vector[Int]) = {
+    def loop(idx: Int, threads: ThreadQueue, lastStart: Int, lastEnd: Int, lastSaved: Vector[Int]): (Int, Int, Vector[Int]) = {
       val res =
         if(idx >= string.size)
           step(program, nbSaved, string.length, None, threads)
@@ -52,11 +50,12 @@ object VM {
           step(program, nbSaved, idx, Some(string(idx)), threads)
         }
       res match {
-        case Next(Queue()) =>
-          // did not match
-          (lastStart, lastEnd, lastSaved)
         case Next(threads) =>
-          loop(idx + 1, threads, lastStart, lastEnd, lastSaved)
+          if(threads.isEmpty)
+            // did not match
+            (lastStart, lastEnd, lastSaved)
+          else
+            loop(idx + 1, threads, lastStart, lastEnd, lastSaved)
         case Matched(start, end, saved, threads) if threads.nonEmpty && idx < string.size =>
           // a match was found but if some higher priority threads still exist
           // try if we find a longer match
@@ -68,16 +67,16 @@ object VM {
     // create and schedule the first thread in which the vritual machine executes the code
     loop(
       startIdx,
-      schedule(program, RThread(startIdx, 0, emptySaved), Queue(), startIdx),
+      schedule(program, RThread(startIdx, 0, emptySaved), ThreadQueue(), startIdx),
       -1,
       -1,
       emptySaved)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */
-  private def step(program: Vector[Inst], nbSaved: Int, idx: Int, char: Option[Char], threads: Queue[RThread]) = {
+  private def step(program: Vector[Inst], nbSaved: Int, idx: Int, char: Option[Char], threads: ThreadQueue) = {
     @tailrec
-    def loop(threads: Queue[RThread], acc: Queue[RThread]): StepResult =
+    def loop(threads: ThreadQueue, acc: ThreadQueue): StepResult =
       if(threads.isEmpty) {
         // we executed all threads for this step, we can go to the next step
         Next(acc)
@@ -107,7 +106,7 @@ object VM {
             Matched(startIdx, idx, saved, acc)
         }
       }
-    loop(threads, Queue())
+    loop(threads, ThreadQueue())
   }
 
   private def fetch(program: Vector[Inst], pc: Int) =
@@ -116,8 +115,8 @@ object VM {
     else
       throw new RuntimeException("Invalid regular expression")
 
-  private def schedule(program: Vector[Inst], thread: RThread, queue: Queue[RThread], idx: Int): Queue[RThread] =
-    if(queue.exists(_.pc == thread.pc))
+  private def schedule(program: Vector[Inst], thread: RThread, queue: ThreadQueue, idx: Int): ThreadQueue =
+    if(queue.contains(thread))
       queue
     else {
       fetch(program, thread.pc) match {
@@ -145,6 +144,6 @@ object VM {
 final case class RThread(startIdx: Int, pc: Int, saved: Vector[Int])
 
 sealed trait StepResult
-final case class Matched(start: Int, end: Int, saved: Vector[Int], threads: Queue[RThread]) extends StepResult
-final case class Next(threads: Queue[RThread]) extends StepResult
+final case class Matched(start: Int, end: Int, saved: Vector[Int], threads: ThreadQueue) extends StepResult
+final case class Next(threads: ThreadQueue) extends StepResult
 

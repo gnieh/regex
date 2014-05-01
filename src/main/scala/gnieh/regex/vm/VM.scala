@@ -36,13 +36,15 @@ object VM {
   /** Executes the given regular expression program with the given string input.
    *  It returns a lazily constructed streamm of all matches in the input.
    */
-  def exec(program: Vector[Inst], nbSaved: Int, startIdx: Int, string: String): Option[(Int, Int, Vector[Int])] = {
+  def exec(program: Vector[Inst], nbSaved: Int, startIdx: Int, string: String): (Int, Int, Vector[Int]) = {
     //println("executing:")
     //println(util.Debug.print(program))
     //println(s"with input: $string")
 
+    val emptySaved = Vector.fill(nbSaved * 2)(-1)
+
     @tailrec
-    def loop(idx: Int, threads: Queue[RThread], lastMatch: Option[(Int, Int, Vector[Int])]): Option[(Int, Int, Vector[Int])] = {
+    def loop(idx: Int, threads: Queue[RThread], lastStart: Int, lastEnd: Int, lastSaved: Vector[Int]): (Int, Int, Vector[Int]) = {
       val res =
         if(idx >= string.size)
           step(program, nbSaved, string.length, None, threads)
@@ -52,22 +54,24 @@ object VM {
       res match {
         case Next(Queue()) =>
           // did not match
-          lastMatch
+          (lastStart, lastEnd, lastSaved)
         case Next(threads) =>
-          loop(idx + 1, threads, lastMatch)
+          loop(idx + 1, threads, lastStart, lastEnd, lastSaved)
         case Matched(start, end, saved, threads) if threads.nonEmpty && idx < string.size =>
           // a match was found but if some higher priority threads still exist
           // try if we find a longer match
-          loop(idx + 1, threads, Some(start, end, saved))
+          loop(idx + 1, threads, start, end, saved)
         case Matched(start, end, saved, threads) =>
-          Some(start, end, saved)
+          (start, end, saved)
       }
     }
     // create and schedule the first thread in which the vritual machine executes the code
     loop(
       startIdx,
-      schedule(program, RThread(startIdx, 0, Vector.fill(nbSaved * 2)(-1)), Queue(), startIdx),
-      None)
+      schedule(program, RThread(startIdx, 0, emptySaved), Queue(), startIdx),
+      -1,
+      -1,
+      emptySaved)
   }
 
   /* given the list of current thread and the currently inspected character, execute one step */
@@ -138,7 +142,7 @@ object VM {
 
 }
 
-case class RThread(startIdx: Int, pc: Int, saved: Vector[Int])
+final case class RThread(startIdx: Int, pc: Int, saved: Vector[Int])
 
 sealed trait StepResult
 final case class Matched(start: Int, end: Int, saved: Vector[Int], threads: Queue[RThread]) extends StepResult
